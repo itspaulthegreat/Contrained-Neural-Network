@@ -101,23 +101,24 @@ anything else.)
 ```bash
 python -m pytest tests/ -v
 ```
-Expect: `6 passed` in well under a second.
+Expect: `10 passed` in a few seconds.
 
 **3. See what would run, without running it:**
 ```bash
 python main.py --dry-run
 ```
-Expect: a list of 79 experiments across 11 groups
+Expect: a list of 92 experiments across 13 groups
 (`method_comparison`, `lipschitz_sweep`, `size_scaling`, `noise_robustness`,
 `multistart`, `kkt_analysis`, `penalty_vs_hard`, `warm_start`,
-`constraint_geometry`, `convergence_rate`, `hessian_comparison`).
+`constraint_geometry`, `convergence_rate`, `hessian_comparison`,
+`complexity`, `pendulum`).
 
 **4. Run everything:**
 ```bash
 python main.py
 ```
-Expect: ~20-30 seconds total wall time, a results table printed at the end,
-22 JSON files + `summary.csv` in `results/`, and ~29 PNGs in `figures/`.
+Expect: ~1-2 minutes total wall time, a results table printed at the end,
+~100 JSON files + `summary.csv` in `results/`, and ~110 PNGs in `figures/`.
 
 **5. Run just one group** (useful while iterating):
 ```bash
@@ -136,6 +137,16 @@ python main.py --name exp_method_ipopt
 ```bash
 python main.py --no-plots
 ```
+
+**8. Build the presentation animations** (after `python main.py` has run at
+least once — two of the four animations replay stored results):
+```bash
+python animate.py                 # all four GIFs into figures/
+python animate.py --only race     # or one at a time: intro / sweep / race / complexity
+```
+Expect: 4 GIFs in `figures/` (`anim_problem_intro`, `anim_lipschitz_sweep`,
+`anim_solver_race`, `anim_complexity`), ~1-2 minutes total. They animate when
+opened in a browser or in a running PowerPoint slideshow.
 
 ---
 
@@ -208,6 +219,26 @@ headline finding). Exact: 23–41 iterations at every size. L-BFGS: 328–4347
 iterations and 10–300× more wall time. On a dense ~200-variable NLP the
 per-iteration savings of skipping the Hessian never pay for the lost
 curvature information.
+
+### Group 12 — complexity race (`fig_complexity.png`, `anim_complexity.gif`)
+Adam and the self-implemented Gauss-Newton/LM run at the same sizes and data
+as the size-scaling group (H = 4→64), so the scaling story becomes a
+comparison. Cost: Adam stays nearly flat while both exact methods grow
+steeply (each factorizes an O(n³) dense system). Generalization (the
+punchline): unconstrained GN/LM overfits as capacity grows — train MSE
+halves while test MSE deteriorates 0.0027 → 0.0044; Adam is protected only
+by its own stall; the constrained IPOPT solve stays at test 0.0031 with
+violation 0 at every size — protected by design, not by accident.
+
+### Group 13 — pendulum system ID (`fig_pendulum.png`)
+The same machinery on a physically meaningful task: identify a damped
+pendulum's free response theta(t) [rad] from simulated noisy angle
+measurements
+(omega = 2 rad/s, zeta = 0.15, t in [0, 6] s). The Lipschitz bound acquires
+physical units — it certifies |d theta_hat/dt| <= L_max rad/s. The certified
+fit (L_max = 4) matches/beats unconstrained Adam (test MSE 0.0029 vs 0.0032)
+while carrying the guarantee; the over-tight run (L_max = 1, below the true
+~2 rad/s) shows a certified underfit — the constraint dial in rad/s.
 
 ### Per-experiment fit plots
 Every experiment also gets its own `figures/<name>.png`: training/test

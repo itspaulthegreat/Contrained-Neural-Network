@@ -355,3 +355,50 @@ for H in [4, 8, 16, 32, 64]:
             L_max=4.0, B_max=6.0, noise_std=0.05,
             ipopt_opts=opts, hessian_mode=mode,
         ))
+
+# ── GROUP 12: complexity race — solvers vs baselines as the network grows ──
+# Group 3 measures how IPOPT alone scales; this group adds the baselines at
+# the identical sizes and data (noise 0.05, seed 0, H = 4..64) so the scaling
+# claim becomes a COMPARISON, not a solo measurement: exact constrained
+# Newton (from Group 3) vs unconstrained Adam vs self-implemented
+# Gauss-Newton/LM. Answers: as the NLP grows, who pays what — and what do
+# you get for it? (IPOPT: O(n^3) factorizations but certified constraints
+# and 1e-8 optimality; Adam: flat cheap iterations but stalls and knows no
+# constraints; GN/LM: Jacobian-cheap and fast to medium accuracy, then the
+# residual-limited floor.)
+for H in [4, 8, 16, 32, 64]:
+    EXPERIMENTS.append(_make(
+        f'exp_complexity_adam_H{H}', f'Complexity race — Adam, H={H}',
+        'complexity', method='adam', H=H, noise_std=0.05,
+    ))
+    EXPERIMENTS.append(_make(
+        f'exp_complexity_gn_H{H}', f'Complexity race — Gauss-Newton/LM, H={H}',
+        'complexity', method='gauss_newton', H=H, noise_std=0.05,
+        gn_opts=dict(max_iter=200, lam0=1e-3, tol=1e-8),
+    ))
+
+# ── GROUP 13: physical task — pendulum system identification ───────────────
+# Answers the "what is it even learning?" question with a physically
+# meaningful task: fit the free response theta(t) [rad] of a damped pendulum
+# (omega = 2 rad/s, zeta = 0.15) from noisy angle measurements over t in
+# [0, 6] s -- classical 1-D system identification. Here the Lipschitz bound
+# has a physical reading: it caps |d theta_hat / d t|, i.e. the maximum
+# angular velocity the fitted model can represent. The true response has
+# |theta'| <= ~2 rad/s; since the Frobenius product over-estimates the true
+# sensitivity (||.||_2 <= ||.||_F), L_max = 4 leaves the physics enough room
+# to fit accurately while still certifying |d theta_hat/dt| <= 4 rad/s.
+# L_max = 1 is deliberately BELOW the physical rate to show what an
+# over-tight certificate does (visible, certified underfit). Adam is the
+# unconstrained baseline.
+_PEND_COMMON = dict(task='pendulum', H=8, noise_std=0.05, seed=0,
+                    x_range=(0.0, 6.0))
+EXPERIMENTS += [
+    _make('exp_pendulum_ipopt', 'Pendulum system ID — IPOPT, L_max=4 (certified)',
+          'pendulum', method='ipopt', use_lipschitz=True, L_max=4.0,
+          use_symmetry_break=True, **_PEND_COMMON),
+    _make('exp_pendulum_tight', 'Pendulum system ID — IPOPT, L_max=1 (over-tight)',
+          'pendulum', method='ipopt', use_lipschitz=True, L_max=1.0,
+          use_symmetry_break=True, **_PEND_COMMON),
+    _make('exp_pendulum_adam', 'Pendulum system ID — Adam (unconstrained)',
+          'pendulum', method='adam', **_PEND_COMMON),
+]

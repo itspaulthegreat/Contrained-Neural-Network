@@ -353,9 +353,92 @@ def anim_solver_race():
     _save(anim, fig, 'anim_solver_race')
 
 
+# ─────────────────────────────────────────────────────────────────────────
+#  Anim 4 — growing the network: constrained vs unconstrained, per size
+# ─────────────────────────────────────────────────────────────────────────
+
+def anim_complexity():
+    """Steps H through 4..64 using stored results: left = unconstrained
+    Gauss-Newton fit (overfits as capacity grows), middle = constrained IPOPT
+    fit (stays smooth — the certificate at work), right = the solve-time race
+    building up. All from results/*.json — no re-solving."""
+    def load(pat):
+        out = {}
+        for H in [4, 8, 16, 32, 64]:
+            f = f'results/{pat}{H}.json'
+            if os.path.exists(f):
+                out[H] = json.load(open(f))
+        return out
+
+    ipopt = load('exp_size_H')                 # constrained, per H
+    gn = load('exp_complexity_gn_H')           # unconstrained baseline, per H
+    adam = load('exp_complexity_adam_H')
+    Hs = sorted(set(ipopt) & set(gn) & set(adam))
+    if not Hs:
+        raise SystemExit('missing results — run: python main.py --group size_scaling '
+                         'and python main.py --group complexity')
+
+    X_train, y_train, _, _ = generate_dataset(noise_std=0.05, seed=0)
+    xs = np.linspace(X_RANGE[0], X_RANGE[1], 300).reshape(1, -1)
+    curves_gn = {H: forward_numpy(np.array(gn[H]['w']), xs, param_shapes(1, H, 1)).flatten() for H in Hs}
+    curves_ip = {H: forward_numpy(np.array(ipopt[H]['w']), xs, param_shapes(1, H, 1)).flatten() for H in Hs}
+
+    hold = 22                                  # frames per size step
+    n_frames = hold * len(Hs) + 12
+
+    fig, axes = plt.subplots(1, 3, figsize=(13.2, 4.4), dpi=100,
+                              gridspec_kw={'width_ratios': [1, 1, 1.15]})
+    axG, axI, axT = axes
+    pad = 0.25 * (y_train.max() - y_train.min())
+    for ax, name in ((axG, 'UNCONSTRAINED (Gauss-Newton/LM)'),
+                     (axI, 'CONSTRAINED (IPOPT, Lipschitz + norm-ball)')):
+        ax.set_xlim(*X_RANGE)
+        ax.set_ylim(y_train.min() - pad, y_train.max() + pad)
+        ax.scatter(X_train.flatten(), y_train.flatten(), s=12, c='tab:blue', alpha=0.5)
+        ax.set_xlabel('input $x$')
+    axG.set_ylabel('output $y$')
+    lnG, = axG.plot([], [], color='tab:red', lw=2.5)
+    lnI, = axI.plot([], [], color='tab:purple', lw=2.5)
+    tG, tI = axG.set_title('', fontsize=10), axI.set_title('', fontsize=10)
+
+    n_vars = {H: ipopt[H]['n_vars'] for H in Hs}
+    axT.set_xscale('log'); axT.set_yscale('log')
+    axT.set_xlim(min(n_vars.values()) * 0.8, max(n_vars.values()) * 1.3)
+    all_t = ([ipopt[H]['solve_time'] for H in Hs] + [gn[H]['solve_time'] for H in Hs]
+             + [adam[H]['solve_time'] for H in Hs])
+    axT.set_ylim(min(all_t) * 0.5, max(all_t) * 3)
+    axT.set_xlabel('decision variables $n$')
+    axT.set_ylabel('solve time [s]')
+    axT.set_title('the cost of exactness grows — $O(n^3)$', fontsize=10)
+    rI, = axT.plot([], [], 'o-', color='tab:blue', label='IPOPT (constrained)')
+    rG, = axT.plot([], [], 'd-', color='tab:red', label='GN/LM (unconstrained)')
+    rA, = axT.plot([], [], 's-', color='tab:green', label='Adam (unconstrained)')
+    axT.legend(fontsize=8, loc='upper left')
+
+    def update(f):
+        i = min(f // hold, len(Hs) - 1)
+        H = Hs[i]
+        lnG.set_data(xs.flatten(), curves_gn[H])
+        lnI.set_data(xs.flatten(), curves_ip[H])
+        tG.set_text(f'H={H} ({n_vars[H]} weights)   test MSE {gn[H]["test_mse"]:.4f}'
+                    f'{"  — overfitting!" if H >= 16 else ""}')
+        tI.set_text(f'H={H}   test MSE {ipopt[H]["test_mse"]:.4f}   violation 0')
+        sub = Hs[:i + 1]
+        rI.set_data([n_vars[h] for h in sub], [ipopt[h]['solve_time'] for h in sub])
+        rG.set_data([n_vars[h] for h in sub], [gn[h]['solve_time'] for h in sub])
+        rA.set_data([n_vars[h] for h in sub], [adam[h]['solve_time'] for h in sub])
+        return lnG, lnI, rI, rG, rA, tG, tI
+
+    anim = manim.FuncAnimation(fig, update, frames=n_frames, blit=False)
+    fig.suptitle('Growing the network (H = 4 → 64): unconstrained capacity chases noise, '
+                 'the constraint keeps its promise')
+    fig.tight_layout()
+    _save(anim, fig, 'anim_complexity')
+
+
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
-    ap.add_argument('--only', choices=['intro', 'sweep', 'race'], default=None)
+    ap.add_argument('--only', choices=['intro', 'sweep', 'race', 'complexity'], default=None)
     args = ap.parse_args()
     os.makedirs(FIGDIR, exist_ok=True)
     if args.only in (None, 'intro'):
@@ -364,3 +447,5 @@ if __name__ == '__main__':
         anim_lipschitz_sweep()
     if args.only in (None, 'race'):
         anim_solver_race()
+    if args.only in (None, 'complexity'):
+        anim_complexity()

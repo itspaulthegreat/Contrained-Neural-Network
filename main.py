@@ -20,14 +20,15 @@ import time
 sys.path.insert(0, os.path.dirname(__file__))
 
 from configs.experiments import EXPERIMENTS
-from src.data import generate_dataset
+from src.data import generate_dataset, generate_pendulum_dataset
 from src.solver import solve
 from src.logger import save_result, print_summary
 from src.plotting import (plot_fit, plot_method_comparison, plot_lipschitz_sweep,
                            plot_size_scaling, plot_noise_robustness, plot_adam_convergence,
                            plot_multistart, plot_kkt_analysis, plot_penalty_vs_hard,
                            plot_warm_start, plot_constraint_geometry,
-                           plot_convergence_rate, plot_hessian_comparison)
+                           plot_convergence_rate, plot_hessian_comparison,
+                           plot_complexity, plot_pendulum)
 # New groups (multistart / kkt_analysis / penalty_vs_hard / constraint_geometry)
 # need solver internals (dual variables) or a solver method (penalty_adam) that
 # src/solver.py's unmodified solve() does not expose/know about -- see
@@ -45,11 +46,18 @@ def run_experiment(exp):
     # varying only the init seed; every existing experiment has no
     # 'data_seed' key, so this falls back to exp['seed'] exactly as before.
     data_seed = exp.get('data_seed', exp['seed'])
-    X_train, y_train, X_test, y_test = generate_dataset(
-        n_train=exp['n_train'], n_test=exp['n_test'], noise_std=exp['noise_std'],
-        seed=data_seed, d_in=exp['d_in'], d_out=exp['d_out'],
-        H_teacher=exp['H_teacher'], x_range=exp['x_range'],
-    )
+    if exp.get('task') == 'pendulum':
+        # physically meaningful task (Group 13): damped-pendulum system ID
+        X_train, y_train, X_test, y_test = generate_pendulum_dataset(
+            n_train=exp['n_train'], n_test=exp['n_test'],
+            noise_std=exp['noise_std'], seed=data_seed, t_range=exp['x_range'],
+        )
+    else:
+        X_train, y_train, X_test, y_test = generate_dataset(
+            n_train=exp['n_train'], n_test=exp['n_test'], noise_std=exp['noise_std'],
+            seed=data_seed, d_in=exp['d_in'], d_out=exp['d_out'],
+            H_teacher=exp['H_teacher'], x_range=exp['x_range'],
+        )
     if exp['method'] == 'penalty_adam':
         res = penalty_adam.solve_penalty_adam(exp, X_train, y_train, X_test, y_test)
     elif exp['method'] == 'gauss_newton':
@@ -116,6 +124,24 @@ def make_comparison_figures(all_results, args):
     g11 = group('hessian_comparison')
     if len(g11) > 1:
         plot_hessian_comparison(g11, os.path.join(FIGURES_DIR, 'fig_hessian_comparison.png'))
+
+    # complexity race combines its own baselines with the size_scaling IPOPT
+    # runs (identical sizes/data); fall back to results/ on disk when only
+    # one of the two groups was run in this session.
+    g12 = group('complexity')
+    if len(g12) > 1:
+        ipopt_sizes = group('size_scaling')
+        if not ipopt_sizes:
+            import json, glob
+            ipopt_sizes = [json.load(open(f)) for f in
+                           glob.glob(os.path.join(RESULTS_DIR, 'exp_size_H*.json'))]
+        plot_complexity(g12 + ipopt_sizes, os.path.join(FIGURES_DIR, 'fig_complexity.png'))
+
+    g13 = group('pendulum')
+    if len(g13) > 1:
+        X_train, y_train, _, _ = generate_pendulum_dataset(noise_std=0.05, seed=0)
+        plot_pendulum(g13, X_train, y_train,
+                      os.path.join(FIGURES_DIR, 'fig_pendulum.png'))
 
 
 def main():

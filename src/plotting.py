@@ -407,6 +407,89 @@ def plot_constraint_geometry(results, path):
 
 
 # ─────────────────────────────────────────────────────────────────────────
+#  Complexity race (GROUP 12 + GROUP 3): all solvers vs growing NLP size
+# ─────────────────────────────────────────────────────────────────────────
+
+def plot_complexity(results, path):
+    """results: the 'complexity' group (adam + gauss_newton per H) PLUS the
+    'size_scaling' group (constrained IPOPT per H) — same data and sizes."""
+    series = [
+        ('ipopt', 'IPOPT (constrained, exact Hessian)', METHOD_COLORS['ipopt'], 'o'),
+        ('gauss_newton', 'Gauss-Newton/LM (unconstrained)', 'tab:red', 'd'),
+        ('adam', 'Adam (unconstrained)', METHOD_COLORS['adam'], 's'),
+    ]
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4.5))
+
+    for method, label, color, marker in series:
+        data = sorted([r for r in results if r['method'] == method],
+                      key=lambda r: r['n_vars'])
+        if not data:
+            continue
+        n_vars = [r['n_vars'] for r in data]
+        axes[0].plot(n_vars, [r['solve_time'] for r in data],
+                     marker + '-', color=color, label=label)
+        # test MSE, not train: unconstrained methods drive train MSE down as
+        # capacity grows (overfitting) -- generalization is the honest metric.
+        axes[1].plot(n_vars, [r['test_mse'] for r in data],
+                     marker + '-', color=color, label=label)
+
+    axes[0].set_xscale('log'); axes[0].set_yscale('log')
+    axes[0].set_xlabel('Number of decision variables (NLP size) [-]')
+    axes[0].set_ylabel('Solve time [s]')
+    axes[0].set_title('Cost vs. size')
+    axes[0].legend(fontsize=8)
+
+    axes[1].set_xscale('log')
+    axes[1].set_xlabel('Number of decision variables (NLP size) [-]')
+    axes[1].set_ylabel('Test MSE [-]')
+    axes[1].set_title('Generalization vs. size')
+    axes[1].legend(fontsize=8)
+
+    fig.suptitle('Complexity race — same data, growing network (H = 4 → 64)\n'
+                  '(IPOPT solves the constrained problem; Adam and GN/LM the unconstrained one)')
+    fig.tight_layout()
+    fig.savefig(path)
+    plt.close(fig)
+
+
+# ─────────────────────────────────────────────────────────────────────────
+#  Pendulum system ID (GROUP 13): physical task, physical units
+# ─────────────────────────────────────────────────────────────────────────
+
+def plot_pendulum(results, X_train, y_train, path):
+    from src.data import pendulum_true
+    ts = np.linspace(0.0, 6.0, 400)
+
+    fig, ax = plt.subplots(figsize=(8, 4.5))
+    ax.plot(ts, pendulum_true(ts), color='black', lw=2, ls=':',
+            label='true response $\\theta(t)$ (physics)')
+    ax.scatter(X_train.flatten(), y_train.flatten(), s=18, c='tab:blue',
+               alpha=0.6, label='noisy measurements')
+
+    styles = {
+        'exp_pendulum_ipopt': ('IPOPT, $L_{max}=4$ rad/s (certified)', 'tab:purple', '-'),
+        'exp_pendulum_tight': ('IPOPT, $L_{max}=1$ rad/s (over-tight)', 'tab:red', '--'),
+        'exp_pendulum_adam': ('Adam (unconstrained)', METHOD_COLORS['adam'], '-'),
+    }
+    for r in sorted(results, key=lambda r: r['name']):
+        label, color, ls = styles.get(r['name'], (r['name'], 'gray', '-'))
+        shapes = param_shapes(1, r['H'], 1)
+        ys = forward_numpy(np.array(r['w']), ts.reshape(1, -1), shapes)
+        ax.plot(ts, ys.flatten(), color=color, ls=ls, lw=2,
+                label=f"{label} — test MSE {r['test_mse']:.4f}")
+
+    ax.set_xlabel('time $t$ [s]')
+    ax.set_ylabel('angle $\\theta$ [rad]')
+    ax.legend(fontsize=8, loc='upper right')
+    fig.suptitle('Physical task — damped-pendulum system identification\n'
+                  'the Lipschitz bound caps the model\'s angular rate '
+                  '$|\\mathrm{d}\\hat{\\theta}/\\mathrm{d}t| \\leq L_{max}$')
+    fig.tight_layout()
+    fig.savefig(path)
+    plt.close(fig)
+
+
+# ─────────────────────────────────────────────────────────────────────────
 #  Convergence rate (GROUP 10): KKT residual vs. iteration, IPOPT vs. Adam
 # ─────────────────────────────────────────────────────────────────────────
 
