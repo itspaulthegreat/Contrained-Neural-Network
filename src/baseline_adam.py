@@ -37,11 +37,16 @@ def adam_optimize(w0, shapes, X_train, y_train, lr=0.02, n_iter=3000,
     m = np.zeros_like(w)
     v = np.zeros_like(w)
     history = []
+    # ||grad f(w_t)||_inf per iteration -- for an unconstrained problem this
+    # is the full KKT residual, used by the convergence_rate study to compare
+    # Adam's first-order decay against IPOPT's Newton-type decay.
+    grad_inf_history = []
 
     t0 = time.time()
     n_used = n_iter
     for t in range(1, n_iter + 1):
         grad = np.asarray(g_fn(w)).flatten()
+        grad_inf_history.append(float(np.max(np.abs(grad))))
         m = beta1 * m + (1 - beta1) * grad
         v = beta2 * v + (1 - beta2) * grad ** 2
         m_hat = m / (1 - beta1 ** t)
@@ -55,4 +60,5 @@ def adam_optimize(w0, shapes, X_train, y_train, lr=0.02, n_iter=3000,
             break
     solve_time = time.time() - t0
 
-    return dict(w=w, history=history, n_iter=n_used, solve_time=solve_time)
+    return dict(w=w, history=history, grad_inf_history=grad_inf_history,
+                n_iter=n_used, solve_time=solve_time)

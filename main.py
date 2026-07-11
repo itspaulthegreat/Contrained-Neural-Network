@@ -26,13 +26,15 @@ from src.logger import save_result, print_summary
 from src.plotting import (plot_fit, plot_method_comparison, plot_lipschitz_sweep,
                            plot_size_scaling, plot_noise_robustness, plot_adam_convergence,
                            plot_multistart, plot_kkt_analysis, plot_penalty_vs_hard,
-                           plot_warm_start, plot_constraint_geometry)
+                           plot_warm_start, plot_constraint_geometry,
+                           plot_convergence_rate, plot_hessian_comparison)
 # New groups (multistart / kkt_analysis / penalty_vs_hard / constraint_geometry)
 # need solver internals (dual variables) or a solver method (penalty_adam) that
 # src/solver.py's unmodified solve() does not expose/know about -- see
 # run_experiment() below. warm_start runs a whole tightening sweep at once and
 # is handled specially in the main loop.
-from src import kkt, multistart, penalty_adam, warm_start, constraint_geometry
+from src import (kkt, multistart, penalty_adam, warm_start, constraint_geometry,
+                 convergence, gauss_newton)
 
 RESULTS_DIR = os.path.join(os.path.dirname(__file__), 'results')
 FIGURES_DIR = os.path.join(os.path.dirname(__file__), 'figures')
@@ -50,10 +52,17 @@ def run_experiment(exp):
     )
     if exp['method'] == 'penalty_adam':
         res = penalty_adam.solve_penalty_adam(exp, X_train, y_train, X_test, y_test)
+    elif exp['method'] == 'gauss_newton':
+        res = gauss_newton.solve_gauss_newton(exp, X_train, y_train, X_test, y_test)
     elif exp.get('group') == 'kkt_analysis':
         res = kkt.solve_with_dual(exp, X_train, y_train, X_test, y_test)
     elif exp.get('group') == 'constraint_geometry':
         res = constraint_geometry.solve_with_duals(exp, X_train, y_train, X_test, y_test)
+    elif exp.get('group') == 'convergence_rate' and exp['method'] == 'ipopt':
+        # needs IPOPT's per-iteration inf_pr/inf_du log; the adam run in this
+        # group goes through the normal solve(), which already records
+        # ||grad f||_inf per iteration as kkt_history.
+        res = convergence.solve_with_iterates(exp, X_train, y_train, X_test, y_test)
     else:
         res = solve(exp, X_train, y_train, X_test, y_test)
     return res, (X_train, y_train, X_test, y_test)
@@ -99,6 +108,14 @@ def make_comparison_figures(all_results, args):
     g9 = group('constraint_geometry')
     if len(g9) > 1:
         plot_constraint_geometry(g9, os.path.join(FIGURES_DIR, 'fig_constraint_geometry.png'))
+
+    g10 = group('convergence_rate')
+    if len(g10) > 1:
+        plot_convergence_rate(g10, os.path.join(FIGURES_DIR, 'fig_convergence_rate.png'))
+
+    g11 = group('hessian_comparison')
+    if len(g11) > 1:
+        plot_hessian_comparison(g11, os.path.join(FIGURES_DIR, 'fig_hessian_comparison.png'))
 
 
 def main():

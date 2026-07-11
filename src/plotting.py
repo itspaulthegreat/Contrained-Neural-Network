@@ -404,3 +404,101 @@ def plot_constraint_geometry(results, path):
     fig.tight_layout()
     fig.savefig(path)
     plt.close(fig)
+
+
+# ─────────────────────────────────────────────────────────────────────────
+#  Convergence rate (GROUP 10): KKT residual vs. iteration, IPOPT vs. Adam
+# ─────────────────────────────────────────────────────────────────────────
+
+def _conv_style(r):
+    """(label, color, linestyle) for one convergence_rate run."""
+    if r['method'] == 'adam':
+        return 'Adam (unconstrained, $\\|\\nabla f\\|_\\infty$)', METHOD_COLORS['adam'], '-'
+    if r['method'] == 'gauss_newton':
+        return 'Gauss-Newton/LM (unconstrained, self-implemented)', 'tab:red', '-.'
+    if r.get('use_lipschitz'):
+        return 'IPOPT (Lipschitz-constrained)', 'tab:purple', '--'
+    return 'IPOPT (unconstrained)', METHOD_COLORS['ipopt'], '-'
+
+
+def plot_convergence_rate(results, path):
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4.5))
+
+    ipopt_max_iter = max((len(r.get('kkt_history') or [])
+                          for r in results if r['method'] == 'ipopt'), default=0)
+
+    for r in sorted(results, key=lambda r: r['method']):
+        h = np.asarray(r.get('kkt_history') or [], dtype=float)
+        if len(h) == 0:
+            continue
+        label, color, ls = _conv_style(r)
+        it = np.arange(len(h))
+        # log axes -- clip exact zeros to the smallest positive value seen
+        h = np.maximum(h, np.min(h[h > 0]) if np.any(h > 0) else 1e-16)
+        # Running minimum: IPOPT's raw per-iteration residual oscillates
+        # (barrier-parameter updates, rejected line-search steps), so the
+        # monotone envelope "best residual reached so far" is what makes the
+        # convergence *rate* readable.
+        h = np.minimum.accumulate(h)
+        axes[0].plot(it, h, ls, color=color, label=label)
+        axes[1].plot(it, h, ls, color=color, label=label)
+
+    axes[0].set_xscale('symlog', linthresh=1)  # iteration 0 has no log position
+    axes[0].set_yscale('log')
+    axes[0].set_xlabel('Iteration $k$ [-]')
+    axes[0].set_ylabel('best KKT residual so far [-]')
+    axes[0].set_title('Full run (log-log)')
+    axes[0].legend(fontsize=8)
+
+    axes[1].set_yscale('log')
+    axes[1].set_xlim(0, max(ipopt_max_iter, 1) * 1.05)
+    axes[1].set_xlabel('Iteration $k$ [-]')
+    axes[1].set_ylabel('best KKT residual so far [-]')
+    axes[1].set_title('Zoom on IPOPT range: superlinear tail')
+    axes[1].legend(fontsize=8)
+
+    fig.suptitle('Convergence rate — KKT residual per iteration\n'
+                  '(same objective, same data, same initial guess $w_0$)')
+    fig.tight_layout()
+    fig.savefig(path)
+    plt.close(fig)
+
+
+# ─────────────────────────────────────────────────────────────────────────
+#  Hessian comparison (GROUP 11): exact vs. L-BFGS Hessian in IPOPT
+# ─────────────────────────────────────────────────────────────────────────
+
+def plot_hessian_comparison(results, path):
+    fig, axes = plt.subplots(1, 2, figsize=(9, 4))
+
+    series = [
+        ('exact', 'exact Hessian (AD)', 'tab:blue', 'o'),
+        ('limited-memory', 'L-BFGS approximation', 'tab:red', 's'),
+    ]
+    for mode, label, color, marker in series:
+        data = sorted([r for r in results if r.get('hessian_mode') == mode],
+                      key=lambda r: r['n_vars'])
+        if not data:
+            continue
+        n_vars = [r['n_vars'] for r in data]
+        axes[0].plot(n_vars, [r['solve_time'] for r in data],
+                     marker + '-', color=color, label=label)
+        axes[1].plot(n_vars, [r['n_iter'] for r in data],
+                     marker + '-', color=color, label=label)
+
+    axes[0].set_xscale('log'); axes[0].set_yscale('log')
+    axes[0].set_xlabel('Number of decision variables (NLP size) [-]')
+    axes[0].set_ylabel('Solve time [s]')
+    axes[0].set_title('Total solve time')
+    axes[0].legend(fontsize=8)
+
+    axes[1].set_xscale('log'); axes[1].set_yscale('log')
+    axes[1].set_xlabel('Number of decision variables (NLP size) [-]')
+    axes[1].set_ylabel('IPOPT iterations [-]')
+    axes[1].set_title('Iteration count')
+    axes[1].legend(fontsize=8)
+
+    fig.suptitle('IPOPT: exact vs. limited-memory Hessian (same constrained NLP)')
+    fig.tight_layout()
+    fig.savefig(path)
+    plt.close(fig)

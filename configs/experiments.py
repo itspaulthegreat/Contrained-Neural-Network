@@ -59,7 +59,6 @@ IPOPT_OPTS = dict(
     ipopt=dict(max_iter=2000, tol=1e-8, print_level=0),
     print_time=False,
 )
-
 SQP_OPTS = dict(
     qpsol='qrqp',
     max_iter=3000,
@@ -277,3 +276,82 @@ for B in [0.5, 1.0, 2.0, 4.0, 8.0, 20.0]:
         use_lipschitz=True, use_norm_ball=True, use_symmetry_break=False,
         noise_std=0.1,
     ))
+
+# ── GROUP 10: convergence rate (KKT residual vs. iteration) ───────────────
+# IPOPT is a Newton-type method: near the solution it uses exact second-order
+# information, so its KKT residual drops superlinearly in the final
+# iterations. Adam is first-order: its gradient norm decays slowly and
+# stalls. The IPOPT-unconstrained and Adam runs minimize the IDENTICAL
+# unconstrained MSE from the identical w0, so for both the plotted residual
+# is the same quantity (the stationarity residual ||grad f||) -- a fair,
+# same-problem comparison of convergence *rate*, not just final MSE.
+# The Lipschitz-constrained IPOPT run (L_max=1.0, chosen so the constraint
+# binds -- the unconstrained optimum sits at Lipschitz~1.6) is added to show
+# the same superlinear tail survives an active nonconvex constraint.
+#
+# The unconstrained run gets tol=1e-6 instead of the project-default 1e-8:
+# the unconstrained problem's minimizers are non-isolated (hidden units can
+# be permuted, and the H=8 student is overparameterized for the H=6 teacher),
+# so the Hessian is singular at every minimizer and Newton-type superlinear
+# convergence is lost -- the residual dips to ~1e-8 but oscillates and never
+# stays there, exhausting max_iter. 1e-6 is attainable (reached at iteration
+# ~780) and still ~100x below where Adam stalls after 3000 iterations
+# (~7e-5). The constrained run keeps 1e-8: the active constraints remove
+# enough of the degeneracy that IPOPT reaches it in ~150 iterations.
+_CONV_COMMON = dict(H=8, noise_std=0.05, seed=0)
+EXPERIMENTS += [
+    _make('exp_conv_ipopt_unc', 'Convergence rate — IPOPT (unconstrained)',
+          'convergence_rate', method='ipopt',
+          ipopt_opts=dict(ipopt=dict(max_iter=2000, tol=1e-6, print_level=0),
+                          print_time=False),
+          **_CONV_COMMON),
+    _make('exp_conv_ipopt_con', 'Convergence rate — IPOPT (Lipschitz-constrained)',
+          'convergence_rate', method='ipopt', use_lipschitz=True, L_max=1.0,
+          **_CONV_COMMON),
+    _make('exp_conv_adam', 'Convergence rate — Adam (unconstrained)',
+          'convergence_rate', method='adam', **_CONV_COMMON),
+    # Gauss-Newton / Levenberg-Marquardt (course notes §6.6-6.7), implemented
+    # from scratch in src/gauss_newton.py. The objective IS a nonlinear
+    # least-squares problem, so the course's dedicated fitting method belongs
+    # in this comparison: it uses the exact residual Jacobian (AD) but drops
+    # the second-order residual term -- structurally between Adam
+    # (first-order) and IPOPT's exact Newton. LM damping is required because
+    # JtJ is singular here (overparameterization + permutation symmetry).
+    _make('exp_conv_gn', 'Convergence rate — Gauss-Newton/LM (unconstrained)',
+          'convergence_rate', method='gauss_newton',
+          gn_opts=dict(max_iter=200, lam0=1e-3, tol=1e-8),
+          **_CONV_COMMON),
+]
+
+# ── GROUP 11: exact vs. limited-memory (L-BFGS) Hessian in IPOPT ──────────
+# Same constrained problem as 'size_scaling' at every H, solved twice: once
+# with the exact Hessian of the Lagrangian (CasADi automatic differentiation,
+# IPOPT's default here) and once with IPOPT's L-BFGS approximation. Exact
+# Hessian: expensive per iteration (build + factorize a dense n x n matrix)
+# but locally superlinear -> few iterations. L-BFGS: cheap per iteration but
+# only first-order curvature -> more iterations. Answers: at which problem
+# size (if any) does the cheaper-per-iteration approximation win on total
+# solve time, and what does it cost in iteration count?
+#
+# Both variants use tol=1e-4 -- NOT the project default 1e-8 -- because the
+# comparison is only fair at a tolerance both can attain. With the exact
+# Hessian IPOPT reaches 1e-8 in ~300 iterations, but with L-BFGS it cannot
+# reach even 1e-5 within 5000 iterations on this problem (the NN training
+# landscape is too degenerate for first-order curvature estimates). That
+# gap is itself the headline result of this group; the tol=1e-4 runs then
+# quantify the iteration/time cost at the accuracy L-BFGS can deliver.
+_HESS_IPOPT_EXACT = dict(ipopt=dict(max_iter=5000, tol=1e-4, print_level=0),
+                          print_time=False)
+_HESS_IPOPT_LBFGS = dict(ipopt=dict(max_iter=5000, tol=1e-4, print_level=0,
+                                     hessian_approximation='limited-memory'),
+                          print_time=False)
+for H in [4, 8, 16, 32, 64]:
+    for mode, tag, opts in [('exact', 'exact', _HESS_IPOPT_EXACT),
+                            ('limited-memory', 'lbfgs', _HESS_IPOPT_LBFGS)]:
+        EXPERIMENTS.append(_make(
+            f'exp_hess_{tag}_H{H}', f'Hessian comparison — {mode}, H={H}',
+            'hessian_comparison', method='ipopt', H=H,
+            use_lipschitz=True, use_norm_ball=True, use_symmetry_break=True,
+            L_max=4.0, B_max=6.0, noise_std=0.05,
+            ipopt_opts=opts, hessian_mode=mode,
+        ))

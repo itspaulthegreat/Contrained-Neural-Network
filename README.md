@@ -107,8 +107,10 @@ Expect: `6 passed` in well under a second.
 ```bash
 python main.py --dry-run
 ```
-Expect: a list of 21 experiments across 4 groups
-(`method_comparison`, `lipschitz_sweep`, `size_scaling`, `noise_robustness`).
+Expect: a list of 79 experiments across 11 groups
+(`method_comparison`, `lipschitz_sweep`, `size_scaling`, `noise_robustness`,
+`multistart`, `kkt_analysis`, `penalty_vs_hard`, `warm_start`,
+`constraint_geometry`, `convergence_rate`, `hessian_comparison`).
 
 **4. Run everything:**
 ```bash
@@ -180,6 +182,32 @@ are loose enough that this isn't a dramatic difference. **If you want a
 more dramatic story for the report**, tighten `L_max`/`B_max` for this
 group in `configs/experiments.py` (e.g. `L_max=1.5`) and re-run — a
 tighter cap should widen the gap in IPOPT's favor at high noise.
+
+### Group 10 — convergence rate (`fig_convergence_rate.png`)
+KKT residual per iteration, same objective / data / initial guess for all
+four runs. Adam (first-order) stalls at a residual of ~2e-4 after its full
+3000 iterations. Gauss-Newton/Levenberg-Marquardt (self-implemented in
+`src/gauss_newton.py`, course notes §6.6–6.7) crashes to 1e-4 within ~15
+Jacobian-cheap iterations — territory Adam never reaches — then stalls at
+its theory-predicted floor (nonzero residuals + singular JᵀJ ⇒ linear rate,
+LM damping mandatory). IPOPT (Newton-type) reaches 1e-6 on the same
+unconstrained problem, and on the Lipschitz-constrained problem shows the
+textbook **superlinear tail** — the residual plunges from 1e-5 to 1e-9 in
+the last ~3 iterations (iteration ~150). One subtlety worth reporting: the
+*unconstrained* problem's minimizers are non-isolated (hidden-unit
+permutation symmetry + overparameterization ⇒ singular Hessian), so even
+IPOPT loses its superlinear rate there and needs a relaxed tolerance
+(1e-6); the active constraints remove enough degeneracy to restore it.
+
+### Group 11 — exact vs. L-BFGS Hessian (`fig_hessian_comparison.png`)
+The same constrained NLP at every network size, solved with IPOPT's exact
+(AD) Hessian vs. its limited-memory BFGS approximation, both at tol=1e-4
+(the tolerance both can attain — with L-BFGS, IPOPT cannot reach even 1e-5
+in 5000 iterations on this degenerate landscape, which is itself the
+headline finding). Exact: 23–41 iterations at every size. L-BFGS: 328–4347
+iterations and 10–300× more wall time. On a dense ~200-variable NLP the
+per-iteration savings of skipping the Hessian never pay for the lost
+curvature information.
 
 ### Per-experiment fit plots
 Every experiment also gets its own `figures/<name>.png`: training/test

@@ -57,6 +57,7 @@ def solve(exp, X_train, y_train, X_test, y_test):
         n_vars = nlp_data['n_vars']
         n_constraints = nlp_data['n_constraints']
         history = []
+        kkt_history = []
         g_violation = max_constraint_violation(out['g_opt'], nlp_data['lbg'], nlp_data['ubg'])
         # Hessian conditioning of the objective at the solution -- an
         # optimization-health metric (see src/analysis.py). Both constrained
@@ -70,6 +71,7 @@ def solve(exp, X_train, y_train, X_test, y_test):
         n_vars = n_params(shapes)
         n_constraints = 0
         history = adam_out['history']
+        kkt_history = adam_out['grad_inf_history']
         g_violation = 0.0
         hess_cond = None
         out = dict(solve_time=adam_out['solve_time'], n_iter=adam_out['n_iter'],
@@ -97,5 +99,6 @@ def solve(exp, X_train, y_train, X_test, y_test):
         train_mse=train_mse, test_mse=test_mse,
         lipschitz_estimate=lip_val, max_constraint_violation=g_violation,
         hessian_condition_number=hess_cond,
-        w=np.asarray(w_opt).tolist(), history=history,
+        hessian_mode=exp.get('hessian_mode'),
+        w=np.asarray(w_opt).tolist(), history=history, kkt_history=kkt_history,
     )
