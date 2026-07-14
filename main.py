@@ -28,7 +28,7 @@ from src.plotting import (plot_fit, plot_method_comparison, plot_lipschitz_sweep
                            plot_multistart, plot_kkt_analysis, plot_penalty_vs_hard,
                            plot_warm_start, plot_constraint_geometry,
                            plot_convergence_rate, plot_hessian_comparison,
-                           plot_complexity, plot_pendulum)
+                           plot_complexity, plot_pendulum, plot_pendulum_sweep)
 # New groups (multistart / kkt_analysis / penalty_vs_hard / constraint_geometry)
 # need solver internals (dual variables) or a solver method (penalty_adam) that
 # src/solver.py's unmodified solve() does not expose/know about -- see
@@ -142,6 +142,10 @@ def make_comparison_figures(all_results, args):
         X_train, y_train, _, _ = generate_pendulum_dataset(noise_std=0.05, seed=0)
         plot_pendulum(g13, X_train, y_train,
                       os.path.join(FIGURES_DIR, 'fig_pendulum.png'))
+
+    g14 = group('pendulum_sweep')
+    if len(g14) > 1:
+        plot_pendulum_sweep(g14, os.path.join(FIGURES_DIR, 'fig_pendulum_sweep.png'))
 
 
 def main():

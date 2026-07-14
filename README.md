@@ -107,11 +107,11 @@ Expect: `10 passed` in a few seconds.
 ```bash
 python main.py --dry-run
 ```
-Expect: a list of 92 experiments across 13 groups
+Expect: a list of 101 experiments across 14 groups
 (`method_comparison`, `lipschitz_sweep`, `size_scaling`, `noise_robustness`,
 `multistart`, `kkt_analysis`, `penalty_vs_hard`, `warm_start`,
 `constraint_geometry`, `convergence_rate`, `hessian_comparison`,
-`complexity`, `pendulum`).
+`complexity`, `pendulum`, `pendulum_sweep`).
 
 **4. Run everything:**
 ```bash
@@ -239,6 +239,46 @@ physical units — it certifies |d theta_hat/dt| <= L_max rad/s. The certified
 fit (L_max = 4) matches/beats unconstrained Adam (test MSE 0.0029 vs 0.0032)
 while carrying the guarantee; the over-tight run (L_max = 1, below the true
 ~2 rad/s) shows a certified underfit — the constraint dial in rad/s.
+
+### Sensitivity table & the "why not tune weight decay" answer (`sensitivity_study.py`)
+Run `python sensitivity_study.py`: the achieved sensitivity ||W1||_F||W2||_F
+across 15 seeds. IPOPT: mean 4.00, std 0.00, max 4.00, 0/15 violations of a
+bound of 4 -- every seed, by construction. Best tuned AdamW at sigma=0.3: mean
+11.6, std 9.6, max 36, and violates a bound of 4 in ALL 15 runs. The wd-sweep
+figure shows the achieved-sensitivity band never collapses onto the target --
+there is no weight-decay value that reliably yields Lipschitz = 4. Weight decay
+nudges sensitivity; only the hard constraint sets it.
+
+### The seed study — best vs best, honest (`fig_seed_study.png`, `seed_study.py`)
+Run `python seed_study.py`: 15 random noise draws per method, Adam given its
+best tuned weight decay (AdamW). Honest finding -- on FIT it is a trade: at
+sigma=0.1 regularized Adam wins (IPOPT 2/15 seeds), at sigma=0.3 IPOPT wins
+(12/15). We do NOT claim hard constraints fit better everywhere. The
+un-tradeable win: IPOPT sensitivity is exactly 4.00 every seed; even tuned
+AdamW floats to 2.6 / 11.6 -- weight decay nudges sensitivity, it cannot set it.
+
+### The motivation figure (`fig_motivation.png`, `motivation_figure.py`)
+Run `python motivation_figure.py` (after main.py): the problem the project
+solves, shown from its own results. Left: unconstrained sensitivity is
+uncontrolled -- 0.94 (sigma=0) to 11.5 (sigma=0.3) to 126 (H=64). Right: the
+penalty workaround is a hyperparameter guess -- requirement ignored at small
+rho, entire usable range inside rho in [1e-5, 1e-4].
+
+### Certified robustness demo (`fig_robustness.png`, `robustness_demo.py`)
+The real-world reading of the Lipschitz constraint: |f(x+d) - f(x)| <=
+L_max*|d| for every input and every perturbation -- a robustness certificate
+chosen before training. Run `python robustness_demo.py` (after main.py): the
+constrained net's guaranteed ceiling is 4*eps; Adam's is 11.5*eps, discovered
+only after training -- a 2.9x higher safety budget. Pure analysis of stored
+weights, no re-training.
+
+### Group 14 — constraint-selection sweep (`fig_pendulum_sweep.png`)
+Answers "isn't L_max arbitrary?" On the pendulum task, sweeping L_max over
+0.5..12 rad/s gives a clean under-fit -> optimum -> plateau curve: test MSE
+0.105 at L=0.5 (cap below the physics), 0.0029 at the optimum L=4, flat after.
+The pendulum's true max rate is 1.61 rad/s; the under-fit region sits exactly
+below it. The value is read off the generalization curve and checked against a
+known physical bound -- not guessed.
 
 ### Per-experiment fit plots
 Every experiment also gets its own `figures/<name>.png`: training/test

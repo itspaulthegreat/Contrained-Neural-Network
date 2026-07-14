@@ -30,7 +30,11 @@ def _build_grad_fn(shapes, X_train, y_train):
 
 
 def adam_optimize(w0, shapes, X_train, y_train, lr=0.02, n_iter=3000,
-                   beta1=0.9, beta2=0.999, eps=1e-8, tol=1e-9):
+                   beta1=0.9, beta2=0.999, eps=1e-8, tol=1e-9, weight_decay=0.0):
+    """weight_decay > 0 gives decoupled weight decay (AdamW) -- the standard
+    real-world regularizer, so the baseline can be `regularized Adam`, not just
+    plain Adam. It shrinks weights toward zero each step but, unlike a hard
+    constraint, cannot fix a chosen sensitivity level (see the seed study)."""
     f_fn, g_fn = _build_grad_fn(shapes, X_train, y_train)
 
     w = np.asarray(w0, dtype=float).flatten()
@@ -52,6 +56,8 @@ def adam_optimize(w0, shapes, X_train, y_train, lr=0.02, n_iter=3000,
         m_hat = m / (1 - beta1 ** t)
         v_hat = v / (1 - beta2 ** t)
         w = w - lr * m_hat / (np.sqrt(v_hat) + eps)
+        if weight_decay:
+            w = w - lr * weight_decay * w        # decoupled (AdamW) decay
 
         loss = float(f_fn(w))
         history.append(loss)
