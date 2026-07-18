@@ -436,9 +436,124 @@ def anim_complexity():
     _save(anim, fig, 'anim_complexity')
 
 
+def anim_pendulum_race():
+    """The pendulum finale, PROTOCOL version (selection-clean, best vs best):
+    validation-tuned AdamW (wd* from results/pendulum_protocol.json) vs
+    certified IPOPT at the validation-selected L* — fitting the damped
+    pendulum's noisy free response theta(t) LIVE from real recorded
+    iterates, on the protocol's train split; final labels are the honest
+    TEST numbers. Run pendulum_protocol.py first."""
+    from src.data import pendulum_true
+    from src.model import mse_numpy, forward_symbolic, n_params, unflatten_symbolic
+    from pendulum_protocol import three_way_split_pendulum, H, SIGMA, SEED
+    from src.constraints import lipschitz_constraint
+
+    proto = json.load(open(os.path.join('results', 'pendulum_protocol.json')))
+    L_star, wd_star = proto['L_star'], proto['wd_star']
+    shapes = param_shapes(1, H, 1)
+    (X_train, y_train), (X_va, y_va), (X_test, y_test) = three_way_split_pendulum()
+    ts = np.linspace(0.0, 6.0, 300).reshape(1, -1)
+    true_curve = pendulum_true(ts).flatten()
+
+    # -- IPOPT run at L* with iterate recording (Lipschitz + symmetry) ------
+    wsym = ca.MX.sym('w', n_params(shapes))
+    f = ca.sumsqr(forward_symbolic(wsym, X_train, shapes) - y_train) / X_train.shape[1]
+    W1, b1, W2, b2 = unflatten_symbolic(wsym, shapes)
+    g, lb, ub = lipschitz_constraint(W1, W2, L_star)
+    gs, lbs, ubs = [g], [float(lb)], [float(ub)]
+    for j in range(H - 1):
+        gs.append(b1[j] - b1[j + 1]); lbs.append(-np.inf); ubs.append(0.0)
+    g_all = ca.vertcat(*gs)
+    rec = _IterRecorder('rec', n_params(shapes), int(g_all.numel()))
+    solver = ca.nlpsol('solver', 'ipopt', {'x': wsym, 'f': f, 'g': g_all},
+                       dict(ipopt=dict(max_iter=3000, tol=1e-8, print_level=0),
+                            print_time=False, iteration_callback=rec))
+    w0 = random_init(shapes, scale=0.5, seed=SEED)
+    solver(x0=w0, lbg=np.array(lbs), ubg=np.array(ubs))
+    ipopt_ws = rec.iterates
+    n_ipopt = len(ipopt_ws)
+
+    # -- AdamW run at wd* from the SAME w0, recording weights ---------------
+    # the SAME optimizer call the protocol makes (record_weights just stores
+    # snapshots) -- so the animation's endpoint IS the protocol's result
+    from src.baseline_adam import adam_optimize
+    out = adam_optimize(w0, shapes, X_train, y_train, lr=0.02, n_iter=3000,
+                        weight_decay=wd_star, record_weights=True)
+    adam_ws = out['w_history']
+    n_adam = len(adam_ws) - 1
+
+    ip_test = mse_numpy(ipopt_ws[-1], X_test, y_test, shapes)
+    ad_test = mse_numpy(adam_ws[n_adam], X_test, y_test, shapes)
+    print(f'final honest TEST — IPOPT (L* = {L_star:g}): {ip_test:.4f}   '
+          f'AdamW (wd* = {wd_star:g}): {ad_test:.4f}'
+          f'   (stored protocol: {proto["test_ipopt"]:.4f} / {proto["test_adamw"]:.4f})')
+
+    frame_its = np.unique(np.geomspace(1, n_adam, 80).astype(int))
+    frame_its = np.concatenate([[0], frame_its])
+    n_frames = len(frame_its) + 14                        # hold at the end
+
+    C_ADAM, C_IPOPT = 'tab:green', 'tab:purple'
+    fig, (axA, axI) = plt.subplots(1, 2, figsize=(12.4, 4.9), dpi=100)
+    pad = 0.25 * (y_train.max() - y_train.min())
+    for ax in (axA, axI):
+        ax.set_xlim(0.0, 6.0)
+        ax.set_ylim(y_train.min() - pad, y_train.max() + pad)
+        ax.set_xlabel('time $t$ [s]')
+    axA.set_ylabel('angle $\\theta$ [rad]')
+
+    def update(k):
+        ki = min(k, len(frame_its) - 1)
+        it = frame_its[ki]
+        for ax, name, c, ws, note in (
+            (axA, f'AdamW — best-vs-best (validation-tuned wd = {wd_star:g})', C_ADAM,
+             adam_ws[it], 'no bound: the achieved rate is DISCOVERED after training'),
+            (axI, f'IPOPT — certified $|\\mathrm{{d}}\\hat\\theta/\\mathrm{{d}}t| \\leq {L_star:g}$ rad/s '
+                  '(validation-selected)',
+             C_IPOPT, ipopt_ws[min(int(round(it / n_adam * (n_ipopt - 1))), n_ipopt - 1)],
+             'the bound holds during the WHOLE run — by construction'),
+        ):
+            ax.clear()
+            ax.set_xlim(0.0, 6.0)
+            ax.set_ylim(y_train.min() - pad, y_train.max() + pad)
+            ax.set_xlabel('time $t$ [s]')
+            ax.scatter(X_train.flatten(), y_train.flatten(), s=14, c='tab:blue',
+                       alpha=0.5, label='noisy measurements')
+            ax.plot(ts.flatten(), true_curve, 'k:', lw=1.6, label='true physics $\\theta(t)$')
+            ax.plot(ts.flatten(), forward_numpy(ws, ts, shapes).flatten(),
+                    color=c, lw=2.2, label='current fit')
+            done = k >= len(frame_its) - 1
+            extra = ''
+            if done:
+                extra = (f'   ·   final TEST MSE {ip_test:.4f}' if 'IPOPT' in name
+                         else f'   ·   final TEST MSE {ad_test:.4f}')
+            it_lab = min(int(round(it / n_adam * (n_ipopt - 1))), n_ipopt - 1) if 'IPOPT' in name else it
+            ax.set_title(f'{name}\niteration {it_lab}{extra}', fontsize=11)
+            ax.text(0.5, 0.03, note, transform=ax.transAxes, fontsize=8,
+                    color='dimgray', ha='center')
+            ax.legend(fontsize=7, loc='upper right')
+        axA.set_ylabel('angle $\\theta$ [rad]')
+        fig.suptitle('The same NLP on a REAL physical system — damped-pendulum '
+                     'system identification, optimizing live',
+                     fontsize=12.5, fontweight='bold')
+        return []
+
+    fig.tight_layout()
+    fig.subplots_adjust(bottom=0.20, top=0.80)
+    fig.text(0.5, 0.02,
+             f'environment — pendulum protocol (pendulum_protocol.py): three-way split 60/60/60 of θ(t), '
+             f't ∈ [0, 6] s, σ = {SIGMA}, seed {SEED}, H = 8 · IPOPT: Lipschitz + symmetry, L swept '
+             f'0.5–12 rad/s, L* = {L_star:g} = argmin of VALIDATION (flat plateau 6–12)\n'
+             f'baseline: AdamW, weight decay tuned on the SAME validation set → wd* = {wd_star:g} · '
+             f'both start from the SAME initial weights; every frame is a real recorded iterate · '
+             f'selection-clean AND best-vs-best; the test set is untouched until the final numbers',
+             fontsize=7, color='dimgray', ha='center')
+    anim = manim.FuncAnimation(fig, update, frames=n_frames, blit=False)
+    _save(anim, fig, 'anim_pendulum_race')
+
+
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
-    ap.add_argument('--only', choices=['intro', 'sweep', 'race', 'complexity'], default=None)
+    ap.add_argument('--only', choices=['intro', 'sweep', 'race', 'complexity', 'pendulum'], default=None)
     args = ap.parse_args()
     os.makedirs(FIGDIR, exist_ok=True)
     if args.only in (None, 'intro'):
@@ -449,3 +564,5 @@ if __name__ == '__main__':
         anim_solver_race()
     if args.only in (None, 'complexity'):
         anim_complexity()
+    if args.only in (None, 'pendulum'):
+        anim_pendulum_race()

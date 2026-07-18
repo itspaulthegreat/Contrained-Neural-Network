@@ -202,7 +202,7 @@ four runs. Adam (first-order) stalls at a residual of ~2e-4 after its full
 Jacobian-cheap iterations — territory Adam never reaches — then stalls at
 its theory-predicted floor (nonzero residuals + singular JᵀJ ⇒ linear rate,
 LM damping mandatory). IPOPT (Newton-type) reaches 1e-6 on the same
-unconstrained problem, and on the Lipschitz-constrained problem shows the
+unconstrained problem, and on the Lipschitz-constrained problem (L_max = 1, the only constraint in that run) shows the
 textbook **superlinear tail** — the residual plunges from 1e-5 to 1e-9 in
 the last ~3 iterations (iteration ~150). One subtlety worth reporting: the
 *unconstrained* problem's minimizers are non-isolated (hidden-unit

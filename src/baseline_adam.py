@@ -30,7 +30,8 @@ def _build_grad_fn(shapes, X_train, y_train):
 
 
 def adam_optimize(w0, shapes, X_train, y_train, lr=0.02, n_iter=3000,
-                   beta1=0.9, beta2=0.999, eps=1e-8, tol=1e-9, weight_decay=0.0):
+                   beta1=0.9, beta2=0.999, eps=1e-8, tol=1e-9, weight_decay=0.0,
+                   record_weights=False):
     """weight_decay > 0 gives decoupled weight decay (AdamW) -- the standard
     real-world regularizer, so the baseline can be `regularized Adam`, not just
     plain Adam. It shrinks weights toward zero each step but, unlike a hard
@@ -45,6 +46,9 @@ def adam_optimize(w0, shapes, X_train, y_train, lr=0.02, n_iter=3000,
     # is the full KKT residual, used by the convergence_rate study to compare
     # Adam's first-order decay against IPOPT's Newton-type decay.
     grad_inf_history = []
+    # optional per-iteration weight snapshots, so an animation can replay the
+    # EXACT run this function performs (no duplicated optimizer loop anywhere)
+    w_history = [w.copy()] if record_weights else None
 
     t0 = time.time()
     n_used = n_iter
@@ -59,6 +63,9 @@ def adam_optimize(w0, shapes, X_train, y_train, lr=0.02, n_iter=3000,
         if weight_decay:
             w = w - lr * weight_decay * w        # decoupled (AdamW) decay
 
+        if record_weights:
+            w_history.append(w.copy())
+
         loss = float(f_fn(w))
         history.append(loss)
         if t > 1 and abs(history[-2] - loss) < tol:
@@ -67,4 +74,4 @@ def adam_optimize(w0, shapes, X_train, y_train, lr=0.02, n_iter=3000,
     solve_time = time.time() - t0
 
     return dict(w=w, history=history, grad_inf_history=grad_inf_history,
-                n_iter=n_used, solve_time=solve_time)
+                n_iter=n_used, solve_time=solve_time, w_history=w_history)

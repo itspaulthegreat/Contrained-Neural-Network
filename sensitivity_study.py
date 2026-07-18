@@ -96,6 +96,12 @@ def raw_distribution_figure(table):
                  'regularized Adam scatters (right-skewed, all above 4)',
                  fontsize=12, fontweight='bold')
     fig.tight_layout()
+    fig.subplots_adjust(bottom=0.22)
+    fig.text(0.5, 0.02,
+             'environment — same runs as the seed study: 15 seeds, 60 train / 40 test, H = 8, σ = 0.1/0.3 · '
+             'IPOPT: L = 4 + ball 6 + symmetry · AdamW: unconstrained, tuned wd = 0.01\n'
+             'every seed plotted individually — nothing averaged away',
+             fontsize=7, color='dimgray', ha='center')
     path = os.path.join(FIGURES, 'fig_sensitivity_dist.png')
     fig.savefig(path)
     plt.close(fig)
@@ -103,32 +109,53 @@ def raw_distribution_figure(table):
 
 
 def wd_sweep_figure(sigma=0.3):
-    means, stds = [], []
+    all_vals = []
     for wd in WD_SWEEP:
-        lips = [run_adam(sigma, s, wd)[1] for s in range(N_SEEDS)]
-        means.append(np.mean(lips)); stds.append(np.std(lips, ddof=1))
-    means, stds = np.array(means), np.array(stds)
+        all_vals.append([run_adam(sigma, s, wd)[1] for s in range(N_SEEDS)])
+    vals = np.array(all_vals)                       # (n_wd, n_seeds)
+    means, stds = vals.mean(axis=1), vals.std(axis=1, ddof=1)
+    med = np.median(vals, axis=1)
+    vmin, vmax = vals.min(axis=1), vals.max(axis=1)
+    # store the sweep so other figures (e.g. the motivation panel) read the
+    # same numbers instead of re-running 120 Adam trainings
+    import json
+    with open(os.path.join(RESULTS, 'wd_sweep_sigma0p3.json'), 'w') as f:
+        json.dump({'sigma': sigma, 'target': TARGET, 'n_seeds': N_SEEDS,
+                   'wd': list(WD_SWEEP), 'mean': means.tolist(),
+                   'std': stds.tolist(), 'median': med.tolist(),
+                   'min': vmin.tolist(), 'max': vmax.tolist(),
+                   'values': vals.tolist()}, f, indent=1)
     x = np.array([max(w, 3e-5) for w in WD_SWEEP])   # 0 -> placeholder for log
 
     fig, ax = plt.subplots(figsize=(8, 4.6))
-    ax.fill_between(x, means - stds, means + stds, color='tab:olive', alpha=0.25,
-                    label='AdamW achieved sensitivity (mean $\\pm$1 std, 15 seeds)')
-    ax.plot(x, means, 'o-', color='tab:olive')
+    # band = the OBSERVED range across seeds: every edge is a real run, so
+    # nothing on the plot covers territory no run ever visited (honest on a
+    # log axis where a mean±std band of skewed data would balloon downward)
+    ax.fill_between(x, vmin, vmax, color='tab:olive', alpha=0.25,
+                    label=f'AdamW achieved sensitivity: observed range over {N_SEEDS} seeds (min–max)')
+    ax.plot(x, med, 'o-', color='tab:olive', label='median seed')
     ax.axhline(TARGET, color='tab:purple', lw=2.5,
                label='IPOPT: exactly 4.00, every seed (zero spread)')
-    ax.annotate('no weight decay reliably\nhits the target: the band\n'
-                'never collapses onto 4',
-                xy=(3e-3, means[np.argmin(np.abs(means - TARGET))]),
+    ax.annotate('no weight decay reliably\nhits the target: the observed\n'
+                'range never collapses onto 4',
+                xy=(3e-3, med[np.argmin(np.abs(med - TARGET))]),
                 xytext=(1e-4, TARGET * 2.1), fontsize=9,
                 arrowprops=dict(arrowstyle='->', lw=1.2))
     ax.set_xscale('log'); ax.set_yscale('log')
-    ax.set_xlabel('weight decay (your knob) [-]   (leftmost point = 0)')
+    ax.set_xlabel('weight decay [-]   (leftmost point = 0)')
     ax.set_ylabel('achieved sensitivity $\\|W_1\\|_F\\|W_2\\|_F$ [-]')
     ax.legend(fontsize=8, loc='upper right')
-    fig.suptitle('Why you cannot "just tune weight decay to reach 4"\n'
+    fig.suptitle('Why weight decay cannot simply be tuned to reach 4\n'
                  '($\\sigma$=0.3): weight decay only NUDGES sensitivity; '
                  'the hard constraint SETS it')
     fig.tight_layout()
+    fig.subplots_adjust(bottom=0.22)
+    fig.text(0.5, 0.02,
+             'environment — σ = 0.3, 15 seeds per point, 60 train / 40 test, H = 8 · AdamW unconstrained, '
+             'weight decay SWEPT (x-axis, the subject)\n'
+             'reference line: IPOPT with the hard Lipschitz bound L = 4 (+ ball 6 + symmetry) — '
+             'the target 4 is the certified bound itself',
+             fontsize=7, color='dimgray', ha='center')
     path = os.path.join(FIGURES, 'fig_wd_vs_sensitivity.png')
     fig.savefig(path)
     plt.close(fig)

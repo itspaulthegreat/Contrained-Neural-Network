@@ -141,6 +141,13 @@ def main():
                  f'(bar = mean; Adam given its best tuned weight decay)',
                  fontsize=12, fontweight='bold')
     fig.tight_layout()
+    fig.subplots_adjust(bottom=0.24)
+    fig.text(0.5, 0.02,
+             f'environment — {N_SEEDS} seeds per method per σ, split 60 train / 40 test, H = 8 · '
+             'IPOPT: all three constraints (L = 4, B = 6, symmetry) · AdamW: unconstrained, weight decay '
+             'tuned on the grid {1e-4…1e-2} → 0.01\n'
+             'σ = 0.1 and 0.3 are deliberately the two informative regimes: the close race and the separation',
+             fontsize=7, color='dimgray', ha='center')
     path = os.path.join(FIGURES, 'fig_seed_study.png')
     fig.savefig(path)
     plt.close(fig)

@@ -1,25 +1,28 @@
 """
 motivation_figure.py
 ──────────────────────
-THE PROBLEM, shown before the solution. Two panels, built entirely from
-stored results (run AFTER `python main.py`):
+THE PROBLEM, shown before the solution. Two panels under ONE consistent
+pair of reference values (the bound L = 4 and the noise levels shown),
+built entirely from stored results (run AFTER `python main.py` and
+`python sensitivity_study.py`):
 
-Left  — in standard (unconstrained) training, the model's sensitivity
+Left  — in standard (unconstrained) training, the sensitivity
         ||W1||_F ||W2||_F is whatever the data and the optimizer make it:
-        it grows 12x with label noise (Adam) and 93x with model size (GN),
-        and nothing the user chose controls it. If you needed to PROMISE a
-        sensitivity bound (robustness, safety, physical plausibility),
-        standard training cannot make that promise.
+        12x growth with label noise (Adam, sigma 0 -> 0.3), 93x with model
+        size (GN, H 4 -> 64), drifting straight through the default bound
+        L = 4 that the seed study certifies.
 
-Right — the standard workaround, a penalty term rho * violation in the
-        loss, is a guessing game: too small and the requirement is simply
-        ignored; the entire ignored->enforced transition hides inside a
-        hairline window of the hyperparameter rho, found only by search,
-        and even a zero measured violation is a post-hoc observation, not
-        a guarantee.
+Right — the STANDARD workaround, regularization you tune (AdamW weight
+        decay), swept at sigma = 0.3 (the left panel's own stress bar)
+        against the SAME bound 4: the achieved-sensitivity band never
+        collapses onto the target. Tuning nudges the property; it cannot
+        set it. (The penalty-in-the-loss variant is a different study at
+        its own conditions and is dissected on the exact-vs-penalty slide.)
 
-This is the pain the project addresses: hard constraints make the promise
-part of the problem statement, and the solver keeps it by construction.
+Redesigned 2026-07-18: the earlier right panel showed the hinge-penalty
+sweep at sigma = 0.05 / L_max = 1 — different noise, different bound on
+the opening slide — which was confusing; this version keeps every value
+on the slide consistent.
 
     python motivation_figure.py    ->  figures/fig_motivation.png
 """
@@ -52,20 +55,17 @@ def main():
 
     # left panel data: unconstrained sensitivity across situations
     adam = [(f'Adam\n$\\sigma$={s}', load(f'exp_noise_{t}_adam')['lipschitz_estimate'])
-            for s, t in [(0.0, '0p0'), (0.1, '0p1'), (0.3, '0p3')]]
+            for s, t in [(0.0, '0p0'), (0.1, '0p1'), (0.2, '0p2'), (0.3, '0p3')]]
     gn = [(f'GN\nH={H}', load(f'exp_complexity_gn_H{H}')['lipschitz_estimate'])
           for H in [4, 16, 64]]
 
-    # right panel data: penalty violation vs rho
-    pen = []
-    for f in os.listdir(RESULTS):
-        if f.startswith('exp_penalty_rho'):
-            r = json.load(open(os.path.join(RESULTS, f)))
-            pen.append((r['rho'], r['max_constraint_violation']))
-    pen.sort()
 
-    fig, axes = plt.subplots(1, 2, figsize=(11, 4.6))
-    axL, axR = axes
+    # right panel: the weight-decay sweep at sigma = 0.3 -- the SAME noise
+    # level as the left panel's stress bar and the SAME target bound L = 4 as
+    # the left panel's dashed line (stored by sensitivity_study.py)
+    wd = json.load(open(os.path.join(RESULTS, 'wd_sweep_sigma0p3.json')))
+
+    fig, (axL, axR) = plt.subplots(1, 2, figsize=(11.6, 5.0))
 
     labels = [a[0] for a in adam + gn]
     vals = [a[1] for a in adam + gn]
@@ -73,7 +73,7 @@ def main():
     x = np.arange(len(labels))
     axL.bar(x, vals, color=colors, width=0.62)
     axL.axhline(REQUIRED, color='black', ls='--', lw=2)
-    axL.text(len(labels) - 0.4, REQUIRED * 1.25, 'the bound you\nneeded to promise',
+    axL.text(len(labels) - 0.4, REQUIRED * 1.25, 'the bound that had to be\npromised (default L = 4)',
              ha='right', fontsize=9, fontweight='bold')
     for xi, v in zip(x, vals):
         axL.text(xi, v * 1.12, f'{v:.3g}', ha='center', fontsize=9)
@@ -83,26 +83,39 @@ def main():
     axL.set_ylabel('sensitivity  $\\|W_1\\|_F\\|W_2\\|_F$  [-] (log)')
     axL.set_title('unconstrained training: sensitivity is\nwhatever data and size make it')
 
-    rho_eps = 3e-6
-    rho = [max(r, rho_eps) for r, _ in pen]
-    vio = [v for _, v in pen]
-    axR.plot(rho, vio, 'o-', color='tab:red')
-    axR.axhline(0.0, color='tab:purple', ls='--', lw=2)
-    axR.text(2e-3, 0.06, 'requirement: violation = 0', color='tab:purple',
+    x = np.array([max(w, 3e-5) for w in wd['wd']])   # wd = 0 -> log placeholder
+    med = np.array(wd['median'])
+    vmin, vmax = np.array(wd['min']), np.array(wd['max'])
+    # band = OBSERVED min-max across seeds: every edge is a real run
+    axR.fill_between(x, vmin, vmax, color='tab:olive', alpha=0.25,
+                     label=f"AdamW: observed range over {wd['n_seeds']} seeds (min–max)")
+    axR.plot(x, med, 'o-', color='tab:olive', label='median seed')
+    axR.axhline(wd['target'], color='black', ls='--', lw=2)
+    axR.text(x[-1], wd['target'] * 1.18, 'the same bound L = 4', ha='right',
              fontsize=9, fontweight='bold')
-    axR.axvspan(1e-5, 1e-4, color='tab:orange', alpha=0.18)
-    axR.annotate('requirement\nsimply ignored', xy=(rho_eps * 1.6, 1.42), fontsize=9, ha='left')
-    axR.annotate('the ENTIRE usable range\nof the guess $\\rho$',
-                 xy=(3e-5, 0.75), xytext=(3e-3, 1.1), fontsize=9, ha='center',
+    axR.annotate('no weight decay PINS the value:\nthe observed range never\ncollapses onto 4',
+                 xy=(3e-3, med[np.argmin(np.abs(med - wd['target']))]),
+                 xytext=(1.2e-4, wd['target'] * 3.6), fontsize=9,
                  arrowprops=dict(arrowstyle='->', lw=1.2))
-    axR.set_xscale('log')
-    axR.set_xlabel('penalty weight $\\rho$ [-] (your guess)')
-    axR.set_ylabel('constraint violation [-]')
-    axR.set_title('the standard fix (penalty in the loss):\nenforcement is a hyperparameter guess')
+    axR.set_xscale('log'); axR.set_yscale('log')
+    axR.set_xlabel('weight decay [-]  (leftmost point = 0; a guess)')
+    axR.set_ylabel('sensitivity  $\\|W_1\\|_F\\|W_2\\|_F$  [-] (log)')
+    axR.set_title('the standard fix (tuned regularization):\n'
+                  'weight decay NUDGES sensitivity, never PINS it')
+    axR.legend(fontsize=8, loc='upper right')
 
-    fig.suptitle('THE PROBLEM — standard NN training cannot promise the properties you need',
-                 fontsize=13, fontweight='bold')
+    fig.suptitle('THE PROBLEM — standard NN training cannot promise the properties a task needs',
+                 fontsize=12.5, fontweight='bold')
     fig.tight_layout()
+    fig.subplots_adjust(bottom=0.26)
+    fig.text(0.5, 0.02,
+             'environment — left: PLAIN Adam (no penalty, no regularization) at σ = 0/0.1/0.2/0.3 (Group 4) and plain '
+             'Gauss-Newton at H = 4/16/64, σ = 0.05 (Group 12) · split 60 train / 40 test\n'
+             'right: AdamW with weight decay SWEPT, at σ = 0.3 — the SAME noise as the left panel\'s stress bar — '
+             f"{wd['n_seeds']} seeds per point, against the SAME bound L = 4 (sensitivity_study.py)\n"
+             'the penalty-in-the-loss variant of the workaround is dissected on the exact-vs-penalty slide, '
+             'with its own conditions stated there',
+             fontsize=7, color='dimgray', ha='center')
     path = os.path.join(FIGURES, 'fig_motivation.png')
     fig.savefig(path)
     plt.close(fig)

@@ -106,6 +106,12 @@ def main():
                  'learned without vs with the constraint (validation improves)',
                  fontsize=12, fontweight='bold')
     fig.tight_layout()
+    fig.subplots_adjust(bottom=0.22)
+    fig.text(0.5, 0.02,
+             f'environment — σ = {SIGMA}, seed {SEED}, 40 train / 40 held-out, H = 8 · constrained run: '
+             f'Lipschitz ONLY, L = {L_MAX}\n'
+             'illustration twin of the headline protocol (which additionally holds out an untouched test set)',
+             fontsize=7, color='dimgray', ha='center')
     fig.savefig(os.path.join(FIG, 'fig_generalization.png'))
     plt.close(fig)
     print('wrote figures/fig_generalization.png')

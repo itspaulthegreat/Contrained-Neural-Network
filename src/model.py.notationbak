@@ -3,7 +3,7 @@ src/model.py
 ─────────────
 Student network architecture: one hidden layer, tanh activation.
 
-    yhat(x; w) = W2 @ tanh(W1 @ x + b1) + b2
+    f(x; w) = W2 @ tanh(W1 @ x + b1) + b2
 
 `w` is the single flattened decision-variable vector handed to the NLP
 solver. This module is the only place that knows how `w` slices into

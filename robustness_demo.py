@@ -98,6 +98,12 @@ def main():
                  '$\\sigma$ = 0.3; bound holds for every $x$, every perturbation)',
                  fontsize=11)
     fig.tight_layout()
+    fig.subplots_adjust(bottom=0.22)
+    fig.text(0.5, 0.02,
+             'environment — pure analysis of STORED weights from Group 4 (σ = 0.3, 60 train / 40 test, '
+             'H = 8): IPOPT (L = 4 + ball 6 + symmetry) vs plain Adam (unconstrained), no retraining\n'
+             'certificate = the a-priori bound; realized = worst case actually measured over x ∈ [−3, 3]',
+             fontsize=7, color='dimgray', ha='center')
     path = os.path.join(FIGURES, 'fig_robustness.png')
     fig.savefig(path)
     plt.close(fig)

@@ -17,7 +17,7 @@ def lipschitz_constraint(W1, W2, L_max):
     """
     Upper-bounds the network's Lipschitz constant.
 
-    For a 1-hidden-layer tanh network, ||yhat(x)-yhat(x')|| <= ||W2||_2 * ||W1||_2 * ||x-x'||
+    For a 1-hidden-layer tanh network, ||f(x)-f(x')|| <= ||W2||_2 * ||W1||_2 * ||x-x'||
     (tanh is 1-Lipschitz, so it does not add to the bound). We use the
     Frobenius norm as a tractable upper bound on the spectral norm:
     ||W||_2 <= ||W||_F.

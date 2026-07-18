@@ -155,7 +155,9 @@ for H in [4, 8, 16, 32, 64]:
 # Constrained (IPOPT, hard Lipschitz + norm-ball) vs unconstrained (Adam),
 # repeated at increasing label noise. Answers: do the hard constraints
 # improve generalization under noisy data compared to unconstrained descent?
-for noise in [0.0, 0.1, 0.3]:
+# 0.2 included so the sweep covers the headline protocol's noise level too
+# (added 2026-07-18; before that the sweep was 0.0/0.1/0.3 only).
+for noise in [0.0, 0.1, 0.2, 0.3]:
     tag = str(noise).replace('.', 'p')
     EXPERIMENTS.append(_make(
         f'exp_noise_{tag}_ipopt', f'Noise robustness — sigma={noise} (IPOPT, constrained)',
