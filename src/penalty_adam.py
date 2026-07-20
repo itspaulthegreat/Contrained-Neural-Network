@@ -47,13 +47,15 @@ def _build_penalty_grad_fn(shapes, X_train, y_train, L_max, rho):
 
 def penalty_adam_optimize(w0, shapes, X_train, y_train, L_max, rho,
                            lr=0.02, n_iter=3000, beta1=0.9, beta2=0.999,
-                           eps=1e-8, tol=1e-9):
+                           eps=1e-8, tol=1e-9, record_weights=False):
     f_fn, g_fn = _build_penalty_grad_fn(shapes, X_train, y_train, L_max, rho)
 
     w = np.asarray(w0, dtype=float).flatten()
     m = np.zeros_like(w)
     v = np.zeros_like(w)
     history = []
+    # optional per-iteration snapshots, so an animation replays THIS run
+    w_history = [w.copy()] if record_weights else None
 
     t0 = time.time()
     n_used = n_iter
@@ -64,6 +66,8 @@ def penalty_adam_optimize(w0, shapes, X_train, y_train, L_max, rho,
         m_hat = m / (1 - beta1 ** t)
         v_hat = v / (1 - beta2 ** t)
         w = w - lr * m_hat / (np.sqrt(v_hat) + eps)
+        if record_weights:
+            w_history.append(w.copy())
 
         loss = float(f_fn(w))
         history.append(loss)
@@ -72,15 +76,81 @@ def penalty_adam_optimize(w0, shapes, X_train, y_train, L_max, rho,
             break
     solve_time = time.time() - t0
 
-    return dict(w=w, history=history, n_iter=n_used, solve_time=solve_time)
+    return dict(w=w, history=history, n_iter=n_used, solve_time=solve_time,
+                w_history=w_history)
+
+
+def multi_penalty_adam_optimize(w0, shapes, X_train, y_train, rho,
+                                 L_max=None, B_max=None, symmetry=False,
+                                 lr=0.02, n_iter=3000, beta1=0.9, beta2=0.999,
+                                 eps=1e-8, tol=0.0, record_weights=False):
+    """The SOFT analogue of the FULL constraint set, so 'penalty vs hard
+    constraint' can be compared like with like:
+
+        min  MSE(w) + rho * [ max(0, ||W1||^2||W2||^2 - L^2)          (Lipschitz)
+                            + max(0, ||w||^2 - B^2)                   (norm ball)
+                            + sum_j max(0, b1[j] - b1[j+1]) ]         (symmetry)
+
+    One shared rho (selected on validation like every other hyper-parameter).
+    Using three separate weights would be a 3-D search -- itself an argument
+    for hard constraints, and noted as such in the write-up.
+    """
+    n = n_params(shapes)
+    w = ca.MX.sym('w', n)
+    W1, b1, W2, b2 = unflatten_symbolic(w, shapes)
+    mse = ca.sumsqr(forward_symbolic(w, X_train, shapes) - y_train) / X_train.shape[1]
+
+    pen = 0
+    if L_max is not None:
+        pen = pen + ca.fmax(0.0, ca.sumsqr(W1) * ca.sumsqr(W2) - L_max ** 2)
+    if B_max is not None:
+        pen = pen + ca.fmax(0.0, ca.sumsqr(w) - B_max ** 2)
+    if symmetry:
+        H = shapes['H']
+        for j in range(H - 1):
+            pen = pen + ca.fmax(0.0, b1[j] - b1[j + 1])
+
+    f = mse + rho * pen
+    f_fn = ca.Function('f', [w], [f])
+    g_fn = ca.Function('g', [w], [ca.gradient(f, w)])
+
+    wv = np.asarray(w0, dtype=float).flatten()
+    m = np.zeros_like(wv)
+    v = np.zeros_like(wv)
+    history = []
+    w_history = [wv.copy()] if record_weights else None
+    t0 = time.time()
+    n_used = n_iter
+    for t in range(1, n_iter + 1):
+        grad = np.asarray(g_fn(wv)).flatten()
+        m = beta1 * m + (1 - beta1) * grad
+        v = beta2 * v + (1 - beta2) * grad ** 2
+        wv = wv - lr * (m / (1 - beta1 ** t)) / (np.sqrt(v / (1 - beta2 ** t)) + eps)
+        if record_weights:
+            w_history.append(wv.copy())
+        loss = float(f_fn(wv))
+        history.append(loss)
+        if tol > 0 and t > 1 and abs(history[-2] - loss) < tol:
+            n_used = t
+            break
+    return dict(w=wv, history=history, n_iter=n_used,
+                solve_time=time.time() - t0, w_history=w_history)
 
 
 def solve_penalty_adam(exp, X_train, y_train, X_test, y_test):
     shapes = param_shapes(exp['d_in'], exp['H'], exp['d_out'])
     w0 = random_init(shapes, scale=exp.get('init_scale', 0.5), seed=exp.get('seed', 0))
 
+    # tol=0.0 disables the early stop. Stopping early is implicit regularization
+    # and it also corrupts the rho sweep: two of the eight runs used to halt at
+    # ~1200 iterations instead of 3000, which moved their achieved sensitivity
+    # onto the wrong side of the bound. Every gradient baseline in this project
+    # runs the same fixed budget. (Fixed 2026-07-19; the earlier early-stopping
+    # audit checked adam_optimize call sites and missed this one.)
+    opts = dict(exp['adam_opts'])
+    opts.setdefault('tol', 0.0)
     out = penalty_adam_optimize(w0, shapes, X_train, y_train,
-                                 L_max=exp['L_max'], rho=exp['rho'], **exp['adam_opts'])
+                                 L_max=exp['L_max'], rho=exp['rho'], **opts)
     w_opt = out['w']
 
     train_mse = mse_numpy(w_opt, X_train, y_train, shapes)

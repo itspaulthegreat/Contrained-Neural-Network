@@ -76,6 +76,11 @@ SQP_OPTS = dict(
 
 ADAM_OPTS = dict(
     lr=0.02, n_iter=3000, beta1=0.9, beta2=0.999,
+    # tol=0.0 disables adam_optimize's loss-plateau early stop. Stopping early is
+    # implicit regularization AND it breaks the equal-budget comparison, so every
+    # first-order run in this project completes its full 3,000 iterations.
+    # (Set 2026-07-19: exp_complexity_adam_H16/H32 had been halting at 2314/2007.)
+    tol=0.0,
 )
 
 

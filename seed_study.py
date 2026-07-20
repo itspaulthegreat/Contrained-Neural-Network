@@ -68,8 +68,12 @@ def run_adam(sigma, seed, weight_decay=0.0):
     shapes = param_shapes(1, 8, 1)
     Xtr, ytr, Xte, yte = data_for(sigma, seed)
     w0 = random_init(shapes, scale=0.5, seed=seed)
+    # tol=0.0 disables adam_optimize's early stop. Early stopping is itself an
+    # implicit regularizer, so leaving it on would hand Adam a fourth advantage
+    # the constrained solver does not get, and would break the equal-budget
+    # comparison: every method here runs exactly 3,000 iterations.
     out = adam_optimize(w0, shapes, Xtr, ytr, lr=0.02, n_iter=3000,
-                        weight_decay=weight_decay)
+                        weight_decay=weight_decay, tol=0.0)
     return mse_numpy(out['w'], Xte, yte, shapes), lipschitz_estimate(out['w'], shapes)
 
 

@@ -449,7 +449,11 @@ def anim_pendulum_race():
     from src.constraints import lipschitz_constraint
 
     proto = json.load(open(os.path.join('results', 'pendulum_protocol.json')))
-    L_star, wd_star = proto['L_star'], proto['wd_star']
+    _matched = json.load(open(os.path.join('results', 'pendulum_matched.json')))
+    # the MATCHED run: every method carries the same three requirements, and
+    # L*, B*, rho*, wd* are all argmins on validation (nothing hand-picked)
+    L_star, B_HARD = _matched['L_star'], _matched['B_star']
+    wd_star = _matched['wd_star']
     shapes = param_shapes(1, H, 1)
     (X_train, y_train), (X_va, y_va), (X_test, y_test) = three_way_split_pendulum()
     ts = np.linspace(0.0, 6.0, 300).reshape(1, -1)
@@ -461,6 +465,7 @@ def anim_pendulum_race():
     W1, b1, W2, b2 = unflatten_symbolic(wsym, shapes)
     g, lb, ub = lipschitz_constraint(W1, W2, L_star)
     gs, lbs, ubs = [g], [float(lb)], [float(ub)]
+    gs.append(ca.sumsqr(wsym)); lbs.append(-np.inf); ubs.append(float(B_HARD ** 2))
     for j in range(H - 1):
         gs.append(b1[j] - b1[j + 1]); lbs.append(-np.inf); ubs.append(0.0)
     g_all = ca.vertcat(*gs)
@@ -470,6 +475,7 @@ def anim_pendulum_race():
                             print_time=False, iteration_callback=rec))
     w0 = random_init(shapes, scale=0.5, seed=SEED)
     solver(x0=w0, lbg=np.array(lbs), ubg=np.array(ubs))
+    ip_iters = int(solver.stats()['iter_count'])
     ipopt_ws = rec.iterates
     n_ipopt = len(ipopt_ws)
 
@@ -478,39 +484,73 @@ def anim_pendulum_race():
     # snapshots) -- so the animation's endpoint IS the protocol's result
     from src.baseline_adam import adam_optimize
     out = adam_optimize(w0, shapes, X_train, y_train, lr=0.02, n_iter=3000,
-                        weight_decay=wd_star, record_weights=True)
+                        weight_decay=wd_star, tol=0.0, record_weights=True)
     adam_ws = out['w_history']
     n_adam = len(adam_ws) - 1
+    # third arm: PLAIN Adam (no weight decay at all) -- the everyday baseline
+    out0 = adam_optimize(w0, shapes, X_train, y_train, lr=0.02, n_iter=3000,
+                         weight_decay=0.0, tol=0.0, record_weights=True)
+    plain_ws = out0['w_history']
+    n_plain = len(plain_ws) - 1
+    # fourth arm: the SAME bound as a SOFT penalty (rho* chosen on validation)
+    from src.penalty_adam import multi_penalty_adam_optimize
+    matched = json.load(open(os.path.join('results', 'pendulum_matched.json')))
+    L_all, B_all = matched['L_star'], matched['B_star']
+    rho_all = matched['rho_star']
+    outp = multi_penalty_adam_optimize(w0, shapes, X_train, y_train, rho=rho_all,
+                                       L_max=L_all, B_max=B_all, symmetry=True,
+                                       n_iter=3000, tol=0.0, record_weights=True)
+    pen_ws = outp['w_history']
+    n_pen = len(pen_ws) - 1
 
     ip_test = mse_numpy(ipopt_ws[-1], X_test, y_test, shapes)
     ad_test = mse_numpy(adam_ws[n_adam], X_test, y_test, shapes)
+    pl_test = mse_numpy(plain_ws[n_plain], X_test, y_test, shapes)
+    pn_test = mse_numpy(pen_ws[n_pen], X_test, y_test, shapes)
+    from src.analysis import lipschitz_estimate
+    ip_rate = lipschitz_estimate(ipopt_ws[-1], shapes)
+    ad_rate = lipschitz_estimate(adam_ws[n_adam], shapes)
+    pl_rate = lipschitz_estimate(plain_ws[n_plain], shapes)
+    pn_rate = lipschitz_estimate(pen_ws[n_pen], shapes)
+    print(f'plain Adam: test {pl_test:.4f}, rate {pl_rate:.2f} | '
+          f'penalty-Adam: test {pn_test:.4f}, rate {pn_rate:.2f}')
     print(f'final honest TEST — IPOPT (L* = {L_star:g}): {ip_test:.4f}   '
           f'AdamW (wd* = {wd_star:g}): {ad_test:.4f}'
           f'   (stored protocol: {proto["test_ipopt"]:.4f} / {proto["test_adamw"]:.4f})')
+    print(f'final rate — IPOPT {ip_rate:.2f} (= L*, guaranteed)   '
+          f'AdamW {ad_rate:.2f} ({"inside" if ad_rate <= L_star else "ABOVE"} the bound)')
 
     frame_its = np.unique(np.geomspace(1, n_adam, 80).astype(int))
     frame_its = np.concatenate([[0], frame_its])
     n_frames = len(frame_its) + 14                        # hold at the end
 
-    C_ADAM, C_IPOPT = 'tab:green', 'tab:purple'
-    fig, (axA, axI) = plt.subplots(1, 2, figsize=(12.4, 4.9), dpi=100)
+    C_PLAIN, C_ADAM, C_PEN, C_IPOPT = 'tab:orange', 'tab:green', 'tab:red', 'tab:purple'
+    fig, axes = plt.subplots(2, 2, figsize=(12.6, 7.4), dpi=100)
+    (axP, axA), (axN, axI) = axes
     pad = 0.25 * (y_train.max() - y_train.min())
-    for ax in (axA, axI):
+    for ax in (axP, axA, axN, axI):
         ax.set_xlim(0.0, 6.0)
         ax.set_ylim(y_train.min() - pad, y_train.max() + pad)
+    for ax in (axN, axI):
         ax.set_xlabel('time $t$ [s]')
-    axA.set_ylabel('angle $\\theta$ [rad]')
+    for ax in (axP, axN):
+        ax.set_ylabel('angle $\\theta$ [rad]')
 
     def update(k):
         ki = min(k, len(frame_its) - 1)
         it = frame_its[ki]
         for ax, name, c, ws, note in (
-            (axA, f'AdamW — best-vs-best (validation-tuned wd = {wd_star:g})', C_ADAM,
-             adam_ws[it], 'no bound: the achieved rate is DISCOVERED after training'),
-            (axI, f'IPOPT — certified $|\\mathrm{{d}}\\hat\\theta/\\mathrm{{d}}t| \\leq {L_star:g}$ rad/s '
-                  '(validation-selected)',
+            (axP, 'plain Adam — no regularization at all', C_PLAIN,
+             plain_ws[min(it, n_plain)], 'the everyday baseline: nothing controls the rate'),
+            (axA, f'AdamW — tuned weight decay (wd* = {wd_star:g})', C_ADAM,
+             adam_ws[it], 'regularized, but still no bound on the rate'),
+            (axN, f'penalty-Adam — the SAME THREE as SOFT penalties (ρ* = {rho_all:g})',
+             C_PEN, pen_ws[min(it, n_pen)],
+             'the bound is ENCOURAGED in the loss, not enforced'),
+            (axI, f'IPOPT — all three HARD:  rate $\leq$ {L_star:g} rad/s,  $\|w\| \leq$ {B_HARD:g},  ordered biases',
+
              C_IPOPT, ipopt_ws[min(int(round(it / n_adam * (n_ipopt - 1))), n_ipopt - 1)],
-             'the bound holds during the WHOLE run — by construction'),
+             'the bound holds at EVERY iterate — by construction'),
         ):
             ax.clear()
             ax.set_xlim(0.0, 6.0)
@@ -522,31 +562,45 @@ def anim_pendulum_race():
             ax.plot(ts.flatten(), forward_numpy(ws, ts, shapes).flatten(),
                     color=c, lw=2.2, label='current fit')
             done = k >= len(frame_its) - 1
-            extra = ''
-            if done:
-                extra = (f'   ·   final TEST MSE {ip_test:.4f}' if 'IPOPT' in name
-                         else f'   ·   final TEST MSE {ad_test:.4f}')
-            it_lab = min(int(round(it / n_adam * (n_ipopt - 1))), n_ipopt - 1) if 'IPOPT' in name else it
-            ax.set_title(f'{name}\niteration {it_lab}{extra}', fontsize=11)
-            ax.text(0.5, 0.03, note, transform=ax.transAxes, fontsize=8,
+            is_ip = 'IPOPT' in name
+            is_plain = name.startswith('plain')
+            is_pen = name.startswith('penalty')
+            test_v, rate_v, iters_v, time_v, wv = (
+                (ip_test, ip_rate, ip_iters, proto['time_ipopt'], ipopt_ws[-1]) if is_ip else
+                (pl_test, pl_rate, n_plain, out0['solve_time'], plain_ws[n_plain]) if is_plain else
+                (pn_test, pn_rate, n_pen, outp['solve_time'], pen_ws[n_pen]) if is_pen else
+                (ad_test, ad_rate, n_adam, proto['time_adamw'], adam_ws[n_adam]))
+            extra = f'   ·   TEST {test_v:.4f}   ·   {iters_v} iters, {time_v:.2f} s' if done else ''
+            it_lab = min(int(round(it / n_adam * (n_ipopt - 1))), n_ipopt - 1) if is_ip else it
+            ax.set_title(f'{name}\niteration {it_lab}{extra}', fontsize=10)
+            ax.text(0.5, 0.03, note, transform=ax.transAxes, fontsize=7.5,
                     color='dimgray', ha='center')
-            ax.legend(fontsize=7, loc='upper right')
-        axA.set_ylabel('angle $\\theta$ [rad]')
+            if done:
+                from src.model import unflatten_numpy as _unf
+                _, _b1, _, _ = _unf(np.asarray(wv), shapes)
+                wn = float(np.linalg.norm(wv))
+                dmin = float(np.diff(np.asarray(_b1).flatten()).min())
+                c_rate, c_ball, c_sym = rate_v <= L_star + 1e-6, wn <= B_HARD + 1e-6, dmin >= -1e-6
+                ok = c_rate and c_ball and c_sym
+                tick = lambda b: '✓' if b else '✗'
+                msg = (f'rate {rate_v:.2f} {tick(c_rate)}   ‖w‖ {wn:.2f} {tick(c_ball)}   '
+                       f'biases ordered {tick(c_sym)}')
+                msg += '   — guaranteed' if is_ip else ('   — all kept, but only after the fact'
+                                                        if ok else '   — REQUIREMENT BROKEN')
+                col = 'tab:purple' if is_ip else ('tab:red' if not ok else 'dimgray')
+                ax.text(0.5, 0.135, msg, transform=ax.transAxes, fontsize=8.5,
+                        ha='center', fontweight='bold', color=col,
+                        bbox=dict(boxstyle='round,pad=0.3', fc='white', alpha=0.85, ec=col))
+            ax.legend(fontsize=6.5, loc='upper right')
+        axP.set_ylabel('angle $\\theta$ [rad]')
         fig.suptitle('The same NLP on a REAL physical system — damped-pendulum '
                      'system identification, optimizing live',
                      fontsize=12.5, fontweight='bold')
         return []
 
     fig.tight_layout()
-    fig.subplots_adjust(bottom=0.20, top=0.80)
-    fig.text(0.5, 0.02,
-             f'environment — pendulum protocol (pendulum_protocol.py): three-way split 60/60/60 of θ(t), '
-             f't ∈ [0, 6] s, σ = {SIGMA}, seed {SEED}, H = 8 · IPOPT: Lipschitz + symmetry, L swept '
-             f'0.5–12 rad/s, L* = {L_star:g} = argmin of VALIDATION (flat plateau 6–12)\n'
-             f'baseline: AdamW, weight decay tuned on the SAME validation set → wd* = {wd_star:g} · '
-             f'both start from the SAME initial weights; every frame is a real recorded iterate · '
-             f'selection-clean AND best-vs-best; the test set is untouched until the final numbers',
-             fontsize=7, color='dimgray', ha='center')
+    fig.subplots_adjust(bottom=0.075, top=0.90, hspace=0.40, wspace=0.16)
+    # (the environment/constraints note lives on the SLIDE, not inside the film)
     anim = manim.FuncAnimation(fig, update, frames=n_frames, blit=False)
     _save(anim, fig, 'anim_pendulum_race')
 

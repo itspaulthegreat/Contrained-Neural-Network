@@ -191,7 +191,9 @@ def main():
         else:
             # axes are explained in the suptitle; short labels avoid colliding
             # with the bottom caption
-            ax.set_xlabel('u₁'); ax.set_ylabel('u₂')
+            # u1,u2 are COORDINATES IN A PLANE, not individual weights
+            ax.set_xlabel('u₁  [weight units]', fontsize=9)
+            ax.set_ylabel('u₂  [weight units]', fontsize=9)
             ax.set_title(f'{name}    f(w*) = {mse(w):.4f}\nactive: {cons}',
                          fontsize=10)
 
@@ -206,9 +208,10 @@ def main():
         si = min(k // HOLD, len(stages) - 1)
         draw_stage(ax, si, azim=-62 + 20 * (k / frames))
         fig.suptitle('The objective does NOT change — the constraints shrink the FEASIBLE region\n'
-                     'axes u₁, u₂ = two directions in the 25-D weight space · '
-                     'each constraint grays out the region it forbids',
-                     fontsize=10.5, fontweight='bold', y=0.98)
+                     'u₁, u₂ are NOT single weights — they are coordinates in the plane through the '
+                     'three constrained optima\n(three points fix a plane in the 25-D weight space; '
+                     'distances run from their centroid)',
+                     fontsize=9.5, fontweight='bold', y=0.985)
         return []
 
     anim = manim.FuncAnimation(fig, update, frames=frames, blit=False)
@@ -226,8 +229,9 @@ def main():
         ax.tick_params(labelsize=7)
         ax.set_xlabel(''); ax.set_ylabel('')
     fig.suptitle('Constraint ablation — the objective surface stays the same; each constraint '
-                 'GRAYS OUT the region it forbids\n(2-D plane through the constrained optima '
-                 'of the 25-D weight space; the unconstrained optimum lies far outside the frame)',
+                 'GRAYS OUT the region it forbids\nthe view is the plane through the three constrained '
+                 'optima — u₁, u₂ are coordinates in it, not single weights; the unconstrained optimum '
+                 'lies far outside the frame',
                  fontsize=10.5, fontweight='bold')
     fig.text(0.5, 0.015,
              'coloured = FEASIBLE under the constraints switched on so far · gray = forbidden · '

@@ -107,15 +107,7 @@ def main():
     fig.suptitle('THE PROBLEM — standard NN training cannot promise the properties a task needs',
                  fontsize=12.5, fontweight='bold')
     fig.tight_layout()
-    fig.subplots_adjust(bottom=0.26)
-    fig.text(0.5, 0.02,
-             'environment — left: PLAIN Adam (no penalty, no regularization) at σ = 0/0.1/0.2/0.3 (Group 4) and plain '
-             'Gauss-Newton at H = 4/16/64, σ = 0.05 (Group 12) · split 60 train / 40 test\n'
-             'right: AdamW with weight decay SWEPT, at σ = 0.3 — the SAME noise as the left panel\'s stress bar — '
-             f"{wd['n_seeds']} seeds per point, against the SAME bound L = 4 (sensitivity_study.py)\n"
-             'the penalty-in-the-loss variant of the workaround is dissected on the exact-vs-penalty slide, '
-             'with its own conditions stated there',
-             fontsize=7, color='dimgray', ha='center')
+    # (the environment note lives on the SLIDE, not inside the figure)
     path = os.path.join(FIGURES, 'fig_motivation.png')
     fig.savefig(path)
     plt.close(fig)
