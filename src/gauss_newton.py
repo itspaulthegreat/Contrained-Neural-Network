@@ -1,6 +1,5 @@
 """
 src/gauss_newton.py
-─────────────────────
 Self-implemented Gauss-Newton / Levenberg-Marquardt method for the
 unconstrained MSE fit (course notes, Numerical Methods 6.2 and 6.7).
 
@@ -14,7 +13,7 @@ That is equivalent to a Newton step with the Hessian approximation
 
     ∇²f ≈ 2 JᵀJ,      J = ∂r/∂w   (exact from CasADi AD),
 
-which drops the Σ rᵢ∇²rᵢ term — exact in the zero-residual limit, and
+which drops the Σ rᵢ∇²rᵢ term - exact in the zero-residual limit, and
 positive semidefinite by construction.
 
 On this problem JᵀJ is SINGULAR (overparameterization + hidden-unit

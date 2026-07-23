@@ -1,6 +1,5 @@
 """
 src/data.py
-────────────
 Synthetic teacher-student regression dataset.
 
 A fixed random "teacher" network generates the ground-truth function;

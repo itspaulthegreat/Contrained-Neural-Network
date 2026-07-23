@@ -1,6 +1,5 @@
 """
 src/warm_start.py
-────────────────────
 Warm-start study (GROUP 8).
 
 A classic NLP technique: when a constraint is tightened in small steps, the
@@ -102,7 +101,7 @@ def run_warm_start_study(base_cfg):
             cfg = dict(base_cfg)
             cfg['L_max'] = L
             cfg['name'] = f'exp_warm_start_{strategy}_L{tag}'
-            cfg['label'] = f'Warm-start study — {strategy} start, L_max={L}'
+            cfg['label'] = f'Warm-start study - {strategy} start, L_max={L}'
 
             # warm start re-uses the previous (looser) solution; cold start
             # always falls back to build_nlp's fixed random w0.

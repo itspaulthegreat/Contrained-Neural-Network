@@ -1,6 +1,5 @@
 """
 src/multistart.py
-────────────────────
 Multi-start / local-minima analysis.
 
 The Lipschitz-constrained NLP is nonconvex (the constraint is bilinear

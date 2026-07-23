@@ -1,6 +1,5 @@
 """
 seed_study.py
-───────────────
 Statistical honesty check: is IPOPT's edge (or Adam's apparent edge at
 sigma=0.1) real, or within seed noise? And is the Adam baseline FAIR --
 i.e. Adam WITH regularization (weight decay), not just plain Adam?
@@ -13,14 +12,14 @@ three methods on the identical data:
   - Adam    : plain, unregularized                              (weak baseline)
   - AdamW   : Adam + decoupled weight decay, strength tuned on seed 0
               across a small grid so the baseline gets its BEST shot
-              (steelmanned "regularized Adam")
+              (the strongest baseline: Adam with tuned weight decay)
 
 Reports per (sigma, method): mean test MSE, std, and the head-to-head win
 rate of IPOPT vs the BEST Adam variant. Also records the achieved
 sensitivity ||W1||_F||W2||_F of each method -- to show that even regularized
 Adam does not let you CHOOSE the sensitivity, it only nudges it.
 
-    python seed_study.py            # ~1-2 min, writes figures/fig_seed_study.png
+    python -m experiments.seed_study   # writes figures/fig_seed_study.png
 
 No conclusions are hard-coded: the verdict text is computed from the runs.
 """
@@ -33,6 +32,8 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from configs.experiments import _make
 from src.data import generate_dataset
 from src.model import param_shapes, random_init, mse_numpy
@@ -141,13 +142,13 @@ def main():
         ax.set_ylabel('test MSE [-]')
         ax.set_title(f'$\\sigma$ = {sigma}   (IPOPT wins {ipopt_wins}/{N_SEEDS} seeds)')
 
-    fig.suptitle(f'Seed study — {N_SEEDS} random noise draws per method '
+    fig.suptitle(f'Seed study - {N_SEEDS} random noise draws per method '
                  f'(bar = mean; Adam given its best tuned weight decay)',
                  fontsize=12, fontweight='bold')
     fig.tight_layout()
     fig.subplots_adjust(bottom=0.24)
     fig.text(0.5, 0.02,
-             f'environment — {N_SEEDS} seeds per method per σ, split 60 train / 40 test, H = 8 · '
+             f'environment - {N_SEEDS} seeds per method per σ, split 60 train / 40 test, H = 8 · '
              'IPOPT: all three constraints (L = 4, B = 6, symmetry) · AdamW: unconstrained, weight decay '
              'tuned on the grid {1e-4…1e-2} → 0.01\n'
              'σ = 0.1 and 0.3 are deliberately the two informative regimes: the close race and the separation',

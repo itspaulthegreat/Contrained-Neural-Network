@@ -1,6 +1,5 @@
 """
 src/solver.py
-───────────────
 Unified entry point: dispatch one experiment config to the right
 optimizer (IPOPT, SQP, or Adam) and return a result dict with the same
 schema regardless of method, so plotting/logging code never needs to

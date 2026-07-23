@@ -1,6 +1,5 @@
 """
 main.py
-────────
 Entry point. Run with:
 
     python main.py                          # run all enabled experiments
@@ -174,7 +173,7 @@ def main():
     print()
 
     if args.dry_run:
-        print('DRY RUN — experiments that would execute:')
+        print('DRY RUN - experiments that would execute:')
         for e in exps:
             print(f'  [{e["group"]:20s}]  {e["name"]:28s}  method={e["method"]:6s}  H={e["H"]}')
         return
