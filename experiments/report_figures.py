@@ -57,8 +57,7 @@ def fig_exact_penalty():
 
 
 _SCALE_SERIES = [("ipopt", "IPOPT (hard)", "tab:purple", "o"),
-                 ("penalty", "penalty-Adam (soft, same reqs)", "tab:olive", "D"),
-                 ("adam", "plain Adam (unconstrained)", "tab:green", "s")]
+                 ("penalty", "penalty-Adam (soft, same reqs)", "tab:olive", "D")]
 
 
 def fig_scaling():
@@ -120,9 +119,7 @@ def fig_pendulum():
     true = pendulum_true(ts).ravel()
 
     methods = [("IPOPT (hard, Lip+ball)", "ip", "tab:purple", "-"),
-               ("penalty-Adam", "pen", "tab:olive", "--"),
-               ("AdamW", "aw", "tab:orange", "-."),
-               ("plain Adam", "pl", "tab:red", ":")]
+               ("penalty-Adam (soft, same reqs)", "pen", "tab:olive", "--")]
     fig, ax = plt.subplots(figsize=(5.8, 3.7))
     ax.scatter(Xtr.ravel(), ytr.ravel(), s=16, color="0.6", label="noisy data", zorder=1)
     ax.plot(ts.ravel(), true, "k--", lw=1.6, label="true response", zorder=2)

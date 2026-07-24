@@ -46,10 +46,14 @@ def solve_ipopt(shapes):
         bool(solver.stats()["success"])
 
 
-def adam_mse(shapes, lr=0.02):
-    """Unconstrained Adam on the MSE, run to a loss plateau or the cap."""
+def _mse_expr(w, shapes):
+    return ca.sumsqr(forward_symbolic(w, Xtr, shapes) - ytr) / Xtr.shape[1]
+
+
+def _adam(shapes, build_f, lr=0.02):
+    """Adam on the objective built by build_f(w), run to a loss plateau or the cap."""
     w = ca.MX.sym("w", n_params(shapes))
-    f = ca.sumsqr(forward_symbolic(w, Xtr, shapes) - ytr) / Xtr.shape[1]
+    f = build_f(w)
     f_fn = ca.Function("f", [w], [f])
     g_fn = ca.Function("g", [w], [ca.gradient(f, w)])
     wv = random_init(shapes, seed=0)
@@ -67,6 +71,20 @@ def adam_mse(shapes, lr=0.02):
     return wv, used, time.time() - t0
 
 
+def adam_mse(shapes):
+    """Unconstrained Adam (the sensitivity baseline)."""
+    return _adam(shapes, lambda w: _mse_expr(w, shapes))
+
+
+def adam_penalty(shapes, rho=1.0):
+    """The matched soft baseline: MSE + rho*(Lipschitz-product + ball hinges)."""
+    def build(w):
+        pen = (ca.fmax(0.0, lipschitz_product_symbolic(w, shapes) - L ** 2)
+               + ca.fmax(0.0, ca.sumsqr(w) - B ** 2))
+        return _mse_expr(w, shapes) + rho * pen
+    return _adam(shapes, build)
+
+
 def main():
     rows = []
     for depth in DEPTHS:
@@ -78,6 +96,11 @@ def main():
         wn_ip = float(np.linalg.norm(w_ip))
         viol = max(max(0.0, sens_ip ** 2 - L ** 2), max(0.0, wn_ip ** 2 - B ** 2))
 
+        # matched soft baseline (same requirements as penalties)
+        w_pn, it_pn, t_pn = adam_penalty(shapes)
+        sens_pn = lipschitz_estimate(w_pn, shapes); wn_pn = float(np.linalg.norm(w_pn))
+        viol_pn = max(max(0.0, sens_pn ** 2 - L ** 2), max(0.0, wn_pn ** 2 - B ** 2))
+        # unconstrained baseline (for the sensitivity point only)
         w_ad, it_ad, t_ad = adam_mse(shapes)
         sens_ad = lipschitz_estimate(w_ad, shapes)
 
@@ -87,15 +110,19 @@ def main():
                        train=mse_numpy(w_ip, Xtr, ytr, shapes),
                        iters=it_ip, time=t_ip, sensitivity=sens_ip,
                        wnorm=wn_ip, violation=viol, success=ok),
+            penalty=dict(test=mse_numpy(w_pn, Xte, yte, shapes),
+                         train=mse_numpy(w_pn, Xtr, ytr, shapes),
+                         iters=it_pn, time=t_pn, sensitivity=sens_pn,
+                         wnorm=wn_pn, violation=viol_pn),
             adam=dict(test=mse_numpy(w_ad, Xte, yte, shapes),
                       train=mse_numpy(w_ad, Xtr, ytr, shapes),
                       iters=it_ad, time=t_ad, sensitivity=sens_ad),
         )
         rows.append(row)
-        print(f"depth={depth} layers  n={n:>3}  "
-              f"IPOPT test={row['ipopt']['test']:.4f} sens={sens_ip:.2f} "
-              f"it={it_ip} t={t_ip:.2f}s viol={viol:.1e} ok={ok}  |  "
-              f"Adam test={row['adam']['test']:.4f} sens={sens_ad:.1f} it={it_ad}")
+        print(f"depth={depth} n={n:>3} | IPOPT test={row['ipopt']['test']:.4f} "
+              f"sens={sens_ip:.2f} t={t_ip:.2f}s viol={viol:.0e} | "
+              f"penalty test={row['penalty']['test']:.4f} sens={sens_pn:.2f} t={t_pn:.2f}s | "
+              f"Adam(unc) test={row['adam']['test']:.4f} sens={sens_ad:.1f}")
 
     out = dict(L=L, B=B, width=WIDTH, depths=DEPTHS, rows=rows)
     path = os.path.join(HERE, "results", "depth_study.json")
