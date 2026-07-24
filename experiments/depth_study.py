@@ -26,7 +26,7 @@ from src.deep_model import (deep_shapes, n_params, forward_symbolic, mse_numpy,
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 L, B = 4.0, 6.0
 WIDTH = 8
-DEPTHS = [1, 2, 3]                       # number of hidden layers
+DEPTHS = [1, 2, 3, 4, 5, 6]              # number of hidden layers
 TOL, CAP = 1e-9, 40000
 IPOPT_OPTS = dict(ipopt=dict(max_iter=3000, tol=1e-8, print_level=0), print_time=False)
 

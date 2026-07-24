@@ -118,8 +118,7 @@ def fig_pendulum():
     ts = np.linspace(0, 6, 400).reshape(1, -1)
     true = pendulum_true(ts).ravel()
 
-    methods = [("IPOPT (hard, Lip+ball)", "ip", "tab:purple", "-"),
-               ("penalty-Adam (soft, same reqs)", "pen", "tab:olive", "--")]
+    methods = [("IPOPT (hard, Lip+ball)", "ip", "tab:purple", "-")]
     fig, ax = plt.subplots(figsize=(5.8, 3.7))
     ax.scatter(Xtr.ravel(), ytr.ravel(), s=16, color="0.6", label="noisy data", zorder=1)
     ax.plot(ts.ravel(), true, "k--", lw=1.6, label="true response", zorder=2)
