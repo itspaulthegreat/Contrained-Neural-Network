@@ -110,6 +110,29 @@ def fig_depth():
     fig.savefig(out); plt.close(fig); print("wrote", out)
 
 
+def fig_depth_cost():
+    """Depth cost and accuracy: matched IPOPT vs penalty-Adam over 1-6 hidden layers."""
+    rows = _load("depth_study.json")["rows"]
+    layers = [r["depth"] for r in rows]
+    series = [("ipopt", "IPOPT (hard)", "tab:purple", "o"),
+              ("penalty", "penalty-Adam (soft, same reqs)", "tab:olive", "D")]
+    fig, (a, b) = plt.subplots(1, 2, figsize=(8.6, 3.7))
+    for m, lab, col, mk in series:
+        a.plot(layers, [r[m]["time"] for r in rows], mk + "-", color=col, lw=2, ms=6, label=lab)
+    a.set_yscale("log"); a.set_xticks(layers)
+    a.set_xlabel("number of hidden layers"); a.set_ylabel("solve time [s]")
+    a.set_title("Cost"); a.legend(fontsize=7.5, loc="upper left")
+    mx = 0
+    for m, lab, col, mk in series:
+        ys = [r[m]["test"] for r in rows]; mx = max(mx, max(ys))
+        b.plot(layers, ys, mk + "-", color=col, lw=2, ms=6, label=lab)
+    b.set_xticks(layers); b.set_xlabel("number of hidden layers"); b.set_ylabel("test MSE [-]")
+    b.set_ylim(0, mx * 1.3); b.set_title("Accuracy"); b.legend(fontsize=7.5, loc="upper right")
+    fig.tight_layout()
+    out = os.path.join(FIGURES, "fig_depth_cost.png")
+    fig.savefig(out); plt.close(fig); print("wrote", out)
+
+
 def fig_pendulum():
     from experiments.pendulum_protocol import three_way_split_pendulum, H
     Z = np.load(os.path.join(RESULTS, "pendulum_traj.npz"))
@@ -118,7 +141,8 @@ def fig_pendulum():
     ts = np.linspace(0, 6, 400).reshape(1, -1)
     true = pendulum_true(ts).ravel()
 
-    methods = [("IPOPT (hard, Lip+ball)", "ip", "tab:purple", "-")]
+    methods = [("IPOPT (hard, Lip+ball)", "ip", "tab:purple", "-"),
+               ("penalty-Adam (soft, not converged)", "pen", "tab:olive", "--")]
     fig, ax = plt.subplots(figsize=(5.8, 3.7))
     ax.scatter(Xtr.ravel(), ytr.ravel(), s=16, color="0.6", label="noisy data", zorder=1)
     ax.plot(ts.ravel(), true, "k--", lw=1.6, label="true response", zorder=2)
@@ -138,6 +162,7 @@ def main():
     fig_exact_penalty()
     fig_scaling()
     fig_depth()
+    fig_depth_cost()
     fig_pendulum()
 
 
