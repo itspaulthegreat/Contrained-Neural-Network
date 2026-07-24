@@ -512,11 +512,10 @@ def plot_constraint_geometry(results, path):
 #
 
 def plot_complexity(results, path):
-    """results: the 'complexity' group (adam + gauss_newton per H) PLUS the
-    'size_scaling' group (constrained IPOPT per H) - same data and sizes."""
+    """results: the 'complexity' group (adam per H) PLUS the 'size_scaling'
+    group (constrained IPOPT per H) - same data and sizes."""
     series = [
         ('ipopt', 'IPOPT (constrained, exact Hessian)', METHOD_COLORS['ipopt'], 'o'),
-        ('gauss_newton', 'Gauss-Newton/LM (unconstrained)', 'tab:red', 'd'),
         ('adam', 'Adam (unconstrained)', METHOD_COLORS['adam'], 's'),
     ]
     fig, axes = plt.subplots(1, 2, figsize=(10, 4.5))
@@ -546,13 +545,13 @@ def plot_complexity(results, path):
     axes[1].set_title('Generalization vs. size')
     axes[1].legend(fontsize=8)
 
-    fig.suptitle('Complexity race - same data, growing network (H = 4 → 64)\n'
-                  '(IPOPT solves the constrained problem; Adam and GN/LM the unconstrained one)')
+    fig.suptitle('Complexity race - same data, growing network\n'
+                  '(IPOPT solves the constrained problem; Adam the unconstrained one)')
     fig.tight_layout()
     conditions_note(fig, results,
                     extra='Group 12 + Group 3 · H SWEPT (subject) · the IPOPT curve is the '
                           'Group-3 runs (all constraints ON), so its cost also carries the '
-                          'constraint machinery; GN/LM and Adam run unconstrained')
+                          'constraint machinery; Adam runs unconstrained')
     fig.savefig(path)
     plt.close(fig)
 
@@ -650,8 +649,6 @@ def _conv_style(r):
     """(label, color, linestyle) for one convergence_rate run."""
     if r['method'] == 'adam':
         return 'Adam (unconstrained, $\\|\\nabla f\\|_\\infty$)', METHOD_COLORS['adam'], '-'
-    if r['method'] == 'gauss_newton':
-        return 'Gauss-Newton/LM (unconstrained, self-implemented)', 'tab:red', '-.'
     if r.get('use_lipschitz'):
         return 'IPOPT (Lipschitz-constrained)', 'tab:purple', '--'
     return 'IPOPT (unconstrained)', METHOD_COLORS['ipopt'], '-'

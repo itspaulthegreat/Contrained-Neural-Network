@@ -1,17 +1,17 @@
 # -*- coding: utf-8 -*-
-"""Pendulum, fixed spec L=4 / B=6 / ordered biases. Four methods, the three
-gradient ones run to CONVERGENCE (tol on the loss, generous cap):
+"""Pendulum, fixed spec L=4 / B=6 (Lipschitz + norm-ball). Four methods, the
+gradient ones run to CONVERGENCE (loss plateau, generous cap):
 
-  - IPOPT (hard, all 3)          : the constrained solve
-  - penalty-Adam (soft, all 3)   : Adam on MSE + rho*(3 hinges); rho swept, the
-                                   best-COMPLIANT one reported, with the count
-  - AdamW (weight decay)         : Adam + wd swept, count reported (never orders)
-  - plain Adam                   : Adam, no constraint
+  - IPOPT (hard, Lip+ball)   : the constrained solve
+  - penalty-Adam (soft)      : Adam on MSE + rho*(Lipschitz + ball hinges); rho
+                               swept, the best-compliant one reported with count
+  - AdamW (weight decay)     : Adam + wd swept, count reported
+  - plain Adam               : Adam, no constraint
 
-Reports each method's rate / ||w|| / ordering / test MSE, iterations, wall time,
-and for the two Adam-with-a-knob methods how many swept settings complied.
+Reports each method's rate / ||w|| / test MSE, iterations, wall time, and for
+the two Adam-with-a-knob methods how many swept settings complied.
 
-    python pendulum_convergence.py
+    python -m experiments.pendulum_convergence
         -> results/pendulum_convergence.json
         -> results/pendulum_traj.npz
 """
@@ -34,7 +34,7 @@ from src.baseline_adam import adam_optimize
 from src.callbacks import IterRecorder
 from experiments import pendulum_protocol as pp
 
-HERE = os.path.dirname(__file__)
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 L, B = 4.0, 6.0
 H = pp.H
 RHO_GRID = [1e-3, 3e-3, 1e-2, 3e-2, 1e-1, 3e-1, 1.0]
@@ -55,18 +55,17 @@ def checks(w):
     sym = float(np.diff(b1.flatten()).min())
     return dict(rate=rate, wnorm=wn, sym=sym, test=te(w),
                 lip_ok=bool(rate <= L + TOLC), ball_ok=bool(wn <= B + TOLC),
-                sym_ok=bool(sym >= -TOLC),
-                all_ok=bool(rate <= L + TOLC and wn <= B + TOLC and sym >= -TOLC))
+                all_ok=bool(rate <= L + TOLC and wn <= B + TOLC))
 
 
-# ---- IPOPT hard, all 3, record iterates ----
+# ---- IPOPT hard (Lipschitz + norm-ball), record iterates ----
 w = ca.MX.sym("w", n_params(shapes))
 f = ca.sumsqr(forward_symbolic(w, Xtr, shapes) - ytr) / Xtr.shape[1]
 W1, b1, W2, b2 = unflatten_symbolic(w, shapes)
 g, lb, ub = lipschitz_constraint(W1, W2, L)
-gs = [g, ca.sumsqr(w)] + [b1[j] - b1[j + 1] for j in range(H - 1)]
-lbs = [float(lb), -ca.inf] + [-ca.inf] * (H - 1)
-ubs = [float(ub), B ** 2] + [0.0] * (H - 1)
+gs = [g, ca.sumsqr(w)]
+lbs = [float(lb), -ca.inf]
+ubs = [float(ub), B ** 2]
 rec = IterRecorder("rec_h", n_params(shapes), len(gs))
 sh = ca.nlpsol("hard", "ipopt", {"x": w, "f": f, "g": ca.vertcat(*gs)},
                dict(ipopt=dict(max_iter=3000, tol=1e-8, print_level=0),
@@ -81,7 +80,7 @@ n_pen = 0; best = None
 print("penalty-Adam sweep to convergence:")
 for rho in RHO_GRID:
     out = multi_penalty_adam_optimize(w0, shapes, Xtr, ytr, rho=rho, L_max=L, B_max=B,
-                                      symmetry=True, n_iter=CAP, tol=TOL)
+                                      symmetry=False, n_iter=CAP, tol=TOL)
     c = checks(out["w"]); n_pen += c["all_ok"]
     print(f"  rho={rho:<7g} rate={c['rate']:.3f} |w|={c['wnorm']:.2f} sym={c['sym']:+.4f}"
           f" test={c['test']:.4f}  {'COMPLIES' if c['all_ok'] else '-'}")
@@ -89,7 +88,7 @@ for rho in RHO_GRID:
         best = (va(out["w"]), rho)
 rho_star = best[1] if best else RHO_GRID[-1]
 out = multi_penalty_adam_optimize(w0, shapes, Xtr, ytr, rho=rho_star, L_max=L, B_max=B,
-                                  symmetry=True, n_iter=CAP, tol=TOL, record_weights=True)
+                                  symmetry=False, n_iter=CAP, tol=TOL, record_weights=True)
 w_pen, it_pen, t_pen, traj_pen = out["w"], int(out["n_iter"]), out["solve_time"], np.array(out["w_history"])
 
 # ---- AdamW: sweep wd to convergence, count (never orders), pick best-val ----
@@ -108,7 +107,7 @@ o = adam_optimize(w0, shapes, Xtr, ytr, lr=0.02, n_iter=CAP, weight_decay=0.0, t
 w_pl, it_pl, t_pl, traj_pl = o["w"], int(o["n_iter"]), o["solve_time"], np.array(o["w_history"])
 
 rows = [
-    ("IPOPT (hard, all 3)", w_ip, it_ip, t_ip, "no knob", "always"),
+    ("IPOPT (hard, Lip+ball)", w_ip, it_ip, t_ip, "no knob", "always"),
     (f"penalty-Adam (rho*={rho_star:g})", w_pen, it_pen, t_pen, f"rho* = {rho_star:g}", f"{n_pen}/{len(RHO_GRID)} rho"),
     (f"AdamW (wd*={wd_star:g})", w_aw, it_aw, t_aw, f"wd* = {wd_star:g}", f"{n_aw}/{len(WD_GRID)} wd"),
     ("plain Adam", w_pl, it_pl, t_pl, "no knob", "0/1"),

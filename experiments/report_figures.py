@@ -7,7 +7,6 @@ in ``results/``. Run the corresponding studies first, then
 writes fig_exact_penalty.png, fig_scaling.png and fig_pendulum.png into
 ``figures/``.
 """
-import glob
 import json
 import os
 import sys
@@ -57,37 +56,58 @@ def fig_exact_penalty():
     fig.savefig(out); plt.close(fig); print("wrote", out)
 
 
-def _size_rows(pattern, keys):
-    rows = []
-    for f in glob.glob(os.path.join(RESULTS, pattern)):
-        d = json.load(open(f))
-        rows.append(tuple(d[k] for k in keys))
-    return sorted(rows)
+_SCALE_SERIES = [("ipopt", "IPOPT (hard)", "tab:purple", "o"),
+                 ("penalty", "penalty-Adam (soft, same reqs)", "tab:olive", "D"),
+                 ("adam", "plain Adam (unconstrained)", "tab:green", "s")]
 
 
 def fig_scaling():
-    # (H, n, time, test) for constrained IPOPT and unconstrained Adam
-    ip = _size_rows("exp_size_H*.json", ["H", "n_vars", "solve_time", "test_mse"])
-    ad = _size_rows("exp_complexity_adam_H*.json", ["H", "n_vars", "solve_time", "test_mse"])
-    Hi = [r[0] for r in ip]; ti = [r[2] for r in ip]; tei = [r[3] for r in ip]
-    Ha = [r[0] for r in ad]; ta = [r[2] for r in ad]
+    """Matched width scaling: the same Lipschitz+ball problem, three methods."""
+    rows = _load("scaling_study.json")["rows"]
 
-    fig, ax = plt.subplots(figsize=(5.6, 3.7))
-    ax.plot(Hi, ti, "o-", color="tab:purple", lw=2, label="IPOPT (constrained), solve time")
-    ax.plot(Ha, ta, "s-", color="tab:green", lw=2, label="Adam (unconstrained), solve time")
-    ax.set_yscale("log")
-    ax.set_xlabel("hidden units $H$  (parameters $n=3H+1$)")
-    ax.set_ylabel("solve time [s]")
-    ax.legend(fontsize=8, loc="upper left")
+    def series(method, key):
+        xs, ys = [], []
+        for r in rows:
+            if method in r:
+                xs.append(r["H"]); ys.append(r[method][key])
+        return xs, ys
 
-    ax2 = ax.twinx()
-    ax2.plot(Hi, tei, "^--", color="tab:gray", lw=1.5, alpha=0.8, label="IPOPT test MSE")
-    ax2.set_ylabel("test MSE [-]")
-    ax2.set_ylim(0, max(tei) * 3)
-    ax2.grid(False)
-    ax2.legend(fontsize=8, loc="lower right")
+    fig, (a, b) = plt.subplots(1, 2, figsize=(8.6, 3.7))
+    for m, lab, col, mk in _SCALE_SERIES:
+        xs, ys = series(m, "time")
+        a.plot(xs, ys, mk + "-", color=col, lw=2, ms=5, label=lab)
+    a.set_yscale("log"); a.set_xlabel("hidden units $H$  ($n=3H+1$)")
+    a.set_ylabel("solve time [s]"); a.set_title("Cost"); a.legend(fontsize=7.5, loc="upper left")
+
+    mx = 0
+    for m, lab, col, mk in _SCALE_SERIES:
+        xs, ys = series(m, "test")
+        b.plot(xs, ys, mk + "-", color=col, lw=2, ms=5, label=lab)
+        mx = max(mx, max(ys) if ys else 0)
+    b.set_xlabel("hidden units $H$  ($n=3H+1$)"); b.set_ylabel("test MSE [-]")
+    b.set_ylim(0, mx * 1.25); b.set_title("Accuracy"); b.legend(fontsize=7.5, loc="upper right")
     fig.tight_layout()
     out = os.path.join(FIGURES, "fig_scaling.png")
+    fig.savefig(out); plt.close(fig); print("wrote", out)
+
+
+def fig_depth():
+    """Sensitivity vs depth: the constraint pins it, unconstrained Adam explodes."""
+    d = _load("depth_study.json")
+    rows = d["rows"]; L = d["L"]
+    depth = [r["depth"] for r in rows]
+    fig, ax = plt.subplots(figsize=(5.6, 3.7))
+    ax.axhline(L, color="black", ls="--", lw=1.5, label=f"bound $L={L:g}$")
+    ax.plot(depth, [r["ipopt"]["sensitivity"] for r in rows], "o-", color="tab:purple",
+            lw=2, ms=7, label="IPOPT (constrained)")
+    ax.plot(depth, [r["adam"]["sensitivity"] for r in rows], "s-", color="tab:red",
+            lw=2, ms=7, label="plain Adam (unconstrained)")
+    ax.set_yscale("log"); ax.set_xticks(depth)
+    ax.set_xlabel("number of hidden layers (depth)")
+    ax.set_ylabel(r"achieved sensitivity $\prod_i \|W_i\|_F$ [-]")
+    ax.legend(fontsize=8, loc="upper left")
+    fig.tight_layout()
+    out = os.path.join(FIGURES, "fig_depth.png")
     fig.savefig(out); plt.close(fig); print("wrote", out)
 
 
@@ -99,7 +119,7 @@ def fig_pendulum():
     ts = np.linspace(0, 6, 400).reshape(1, -1)
     true = pendulum_true(ts).ravel()
 
-    methods = [("IPOPT (hard, all 3)", "ip", "tab:purple", "-"),
+    methods = [("IPOPT (hard, Lip+ball)", "ip", "tab:purple", "-"),
                ("penalty-Adam", "pen", "tab:olive", "--"),
                ("AdamW", "aw", "tab:orange", "-."),
                ("plain Adam", "pl", "tab:red", ":")]
@@ -121,6 +141,7 @@ def fig_pendulum():
 def main():
     fig_exact_penalty()
     fig_scaling()
+    fig_depth()
     fig_pendulum()
 
 

@@ -48,7 +48,7 @@ RHO_GRID = [1e-4, 1e-3, 1e-2, 1e-1, 1.0, 10.0]
 # identical budget -- otherwise a run that halts sooner looks 'better
 # behaved' purely because early stopping is itself implicit regularization.
 N_ADAM = 3000
-RESULTS = os.path.join(os.path.dirname(__file__), 'results')
+RESULTS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'results')
 
 
 def three_way_split_pendulum(seed=SEED, n=60, sigma=SIGMA):

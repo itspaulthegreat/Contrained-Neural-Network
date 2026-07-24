@@ -38,7 +38,7 @@ from src.model import (forward_symbolic, mse_numpy, n_params, param_shapes,
 from experiments import synthetic_protocol as vp
 
 
-HERE = os.path.dirname(__file__)
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 L = 4.0
 SIG = 0.2
 H = vp.H

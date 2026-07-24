@@ -41,7 +41,7 @@ from src.solver import solve
 from src.baseline_adam import adam_optimize
 from src.analysis import lipschitz_estimate
 
-FIGURES = os.path.join(os.path.dirname(__file__), 'figures')
+FIGURES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'figures')
 N_SEEDS = 15
 SIGMAS = [0.1, 0.3]
 WD_GRID = [1e-4, 3e-4, 1e-3, 3e-3, 1e-2]        # weight-decay candidates
@@ -56,9 +56,11 @@ def data_for(sigma, seed):
 
 
 def run_ipopt(sigma, seed):
+    # core constraints: Lipschitz + norm-ball (the ordering constraint is studied
+    # separately in the symmetry ablation and left out here)
     exp = _make(f'seedstudy_ipopt_s{seed}', 'seed study', 'seedstudy',
                 method='ipopt', H=8, use_lipschitz=True, use_norm_ball=True,
-                use_symmetry_break=True, L_max=4.0, B_max=6.0,
+                use_symmetry_break=False, L_max=4.0, B_max=6.0,
                 noise_std=sigma, seed=seed)
     Xtr, ytr, Xte, yte = data_for(sigma, seed)
     r = solve(exp, Xtr, ytr, Xte, yte)
@@ -69,12 +71,10 @@ def run_adam(sigma, seed, weight_decay=0.0):
     shapes = param_shapes(1, 8, 1)
     Xtr, ytr, Xte, yte = data_for(sigma, seed)
     w0 = random_init(shapes, scale=0.5, seed=seed)
-    # tol=0.0 disables adam_optimize's early stop. Early stopping is itself an
-    # implicit regularizer, so leaving it on would hand Adam a fourth advantage
-    # the constrained solver does not get, and would break the equal-budget
-    # comparison: every method here runs exactly 3,000 iterations.
-    out = adam_optimize(w0, shapes, Xtr, ytr, lr=0.02, n_iter=3000,
-                        weight_decay=weight_decay, tol=0.0)
+    # every gradient baseline uses the same stopping rule as the rest of the
+    # project: run until the loss plateaus (change < 1e-9) or the 40000 cap
+    out = adam_optimize(w0, shapes, Xtr, ytr, lr=0.02, n_iter=40000,
+                        weight_decay=weight_decay, tol=1e-9)
     return mse_numpy(out['w'], Xte, yte, shapes), lipschitz_estimate(out['w'], shapes)
 
 

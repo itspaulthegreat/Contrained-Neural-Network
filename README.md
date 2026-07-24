@@ -37,7 +37,6 @@ nn_constrained_nlp/
 │   ├── solver.py           dispatches to IPOPT / SQP / Adam, unified result dict
 │   ├── baseline_adam.py    Adam / AdamW baseline
 │   ├── penalty_adam.py     hinge-penalty baseline
-│   ├── gauss_newton.py     Gauss-Newton / Levenberg-Marquardt baseline
 │   ├── analysis.py         sensitivity estimate, violation, conditioning
 │   ├── callbacks.py        IPOPT per-iteration callback
 │   └── ...                 kkt, multistart, warm_start, convergence, plotting

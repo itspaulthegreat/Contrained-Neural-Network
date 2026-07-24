@@ -25,7 +25,7 @@ from src.data import generate_dataset, generate_pendulum_dataset
 from src.model import param_shapes, unflatten_numpy
 from src.solver import solve
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SEEDS = list(range(8))
 H = 8
 GAP_TOL = 1e-4          # a consecutive-bias gap below this counts the order constraint as active

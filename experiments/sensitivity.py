@@ -35,8 +35,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from experiments.seed_study import run_ipopt, run_adam, tune_wd, N_SEEDS
 
-FIGURES = os.path.join(os.path.dirname(__file__), 'figures')
-RESULTS = os.path.join(os.path.dirname(__file__), 'results')
+FIGURES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'figures')
+RESULTS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'results')
 TARGET = 4.0
 WD_SWEEP = [0.0, 1e-4, 3e-4, 1e-3, 3e-3, 1e-2, 3e-2, 1e-1]
 

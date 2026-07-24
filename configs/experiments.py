@@ -314,17 +314,6 @@ EXPERIMENTS += [
           **_CONV_COMMON),
     _make('exp_conv_adam', 'Convergence rate - Adam (unconstrained)',
           'convergence_rate', method='adam', **_CONV_COMMON),
-    # Gauss-Newton / Levenberg-Marquardt (course notes §6.6-6.7), implemented
-    # from scratch in src/gauss_newton.py. The objective IS a nonlinear
-    # least-squares problem, so the course's dedicated fitting method belongs
-    # in this comparison: it uses the exact residual Jacobian (AD) but drops
-    # the second-order residual term -- structurally between Adam
-    # (first-order) and IPOPT's exact Newton. LM damping is required because
-    # JtJ is singular here (overparameterization + permutation symmetry).
-    _make('exp_conv_gn', 'Convergence rate - Gauss-Newton/LM (unconstrained)',
-          'convergence_rate', method='gauss_newton',
-          gn_opts=dict(max_iter=200, lam0=1e-3, tol=1e-8),
-          **_CONV_COMMON),
 ]
 
 #  GROUP 11: exact vs. limited-memory (L-BFGS) Hessian in IPOPT
@@ -360,29 +349,15 @@ for H in [4, 8, 16, 32, 64]:
             ipopt_opts=opts, hessian_mode=mode,
         ))
 
-#  GROUP 12: complexity race - solvers vs baselines as the network grows
-# Group 3 measures how IPOPT alone scales; this group adds the baselines at
-# the identical sizes and data (noise 0.05, seed 0, H = 4..64) so the scaling
-# claim becomes a COMPARISON, not a solo measurement: exact constrained
-# Newton (from Group 3) vs unconstrained Adam vs self-implemented
-# Gauss-Newton/LM. Answers: as the NLP grows, who pays what - and what do
-# you get for it? (IPOPT: O(n^3) factorizations but certified constraints
-# and 1e-8 optimality; Adam: flat cheap iterations but stalls and knows no
-# constraints; GN/LM: Jacobian-cheap and fast to medium accuracy, then the
-# residual-limited floor.)
+#  GROUP 12: complexity race - IPOPT vs Adam as the network grows
+# Adds the unconstrained Adam baseline at the same sizes and data as the
+# size_scaling group so the scaling claim becomes a comparison: exact
+# constrained Newton (O(n^3) factorizations, certified constraints) vs
+# unconstrained Adam (cheap, flat iterations, no constraints).
 for H in [4, 8, 16, 32, 64, 96, 128, 192, 256]:
     EXPERIMENTS.append(_make(
         f'exp_complexity_adam_H{H}', f'Complexity race - Adam, H={H}',
         'complexity', method='adam', H=H, noise_std=0.05,
-    ))
-# Gauss-Newton/LM uses dense Jacobian solves and is already ~60 s at H=64,
-# so it is only run over the smaller sizes; the headline scaling comparison
-# is IPOPT (second-order, O(n^3) per step) vs Adam (first-order, O(n) per step).
-for H in [4, 8, 16, 32, 64]:
-    EXPERIMENTS.append(_make(
-        f'exp_complexity_gn_H{H}', f'Complexity race - Gauss-Newton/LM, H={H}',
-        'complexity', method='gauss_newton', H=H, noise_std=0.05,
-        gn_opts=dict(max_iter=200, lam0=1e-3, tol=1e-8),
     ))
 
 #  GROUP 13: physical task - pendulum system identification

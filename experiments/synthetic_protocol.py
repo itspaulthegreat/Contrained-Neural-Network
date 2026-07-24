@@ -38,7 +38,7 @@ SEED = 2
 SIGMA = 0.2
 H = 8
 X_RANGE = (-3.0, 3.0)
-FIG_DIR = os.path.join(os.path.dirname(__file__), 'figures')
+FIG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'figures')
 L_GRID = [0.1, 0.15, 0.2, 0.25, 0.3, 0.5, 0.75, 1.0, 1.5, 2.0, 4.0, 10.0]
 
 
@@ -168,7 +168,7 @@ def constraint_ablation():
     for r in rows[1:]:
         print(f"  {r['config']:<26} improves the honest test cost by "
               f"{(base - r['test']) / base * 100:.0f}% vs unconstrained")
-    with open(os.path.join(os.path.dirname(__file__), 'results',
+    with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'results',
                            'protocol_constraint_ablation.json'), 'w') as f:
         json.dump(rows, f, indent=1)
     print('wrote results/protocol_constraint_ablation.json')
@@ -263,7 +263,7 @@ def matched_comparison():
                          sym_ok=bool(dmin >= -1e-6), w=w.tolist(), **prov))
     out = dict(L_star=L_star, B_star=B_star, rho_star=rho_star, wd_star=wd_star,
                sigma=SIGMA, seed=SEED, rows=rows)
-    with open(os.path.join(os.path.dirname(__file__), 'results',
+    with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'results',
                            'protocol_matched.json'), 'w') as f:
         json.dump(out, f, indent=1)
     print(f"{'method':<44}{'TEST':>9}{'rate':>9}{'||w||':>12}   Lip/ball/sym")
@@ -341,7 +341,7 @@ def make_figure():
     plt.rcParams.update({'font.size': 11, 'figure.dpi': 150, 'savefig.dpi': 150,
                          'lines.linewidth': 2, 'axes.grid': True, 'grid.alpha': 0.3})
 
-    path = os.path.join(os.path.dirname(__file__), 'results', 'protocol_matched.json')
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'results', 'protocol_matched.json')
     if not os.path.exists(path):
         matched_comparison()
     D = json.load(open(path))
