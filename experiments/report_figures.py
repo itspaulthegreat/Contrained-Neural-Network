@@ -158,11 +158,30 @@ def fig_pendulum():
     fig.savefig(out); plt.close(fig); print("wrote", out)
 
 
+def fig_convergence():
+    """Optimality residual vs iteration: IPOPT superlinear vs Adam first-order stall.
+    Plotted as the best residual reached so far (a monotone convergence envelope)."""
+    d = _load("convergence.json")
+    kkt = np.minimum.accumulate(d["ipopt_kkt"])
+    grad = np.minimum.accumulate(d["adam_grad"])
+    fig, ax = plt.subplots(figsize=(5.6, 3.7))
+    ax.semilogy(range(1, len(kkt) + 1), kkt, color="tab:purple", lw=2,
+                label=f"IPOPT, KKT residual ({len(kkt)} it)")
+    ax.semilogy(range(1, len(grad) + 1), grad, color="tab:green", lw=2,
+                label=f"Adam, gradient norm ({len(grad)} it)")
+    ax.set_xlabel("iteration"); ax.set_ylabel("best optimality residual [-]")
+    ax.legend(fontsize=8, loc="upper right")
+    fig.tight_layout()
+    out = os.path.join(FIGURES, "fig_convergence.png")
+    fig.savefig(out); plt.close(fig); print("wrote", out)
+
+
 def main():
     fig_exact_penalty()
     fig_scaling()
     fig_depth()
     fig_depth_cost()
+    fig_convergence()
     fig_pendulum()
 
 
