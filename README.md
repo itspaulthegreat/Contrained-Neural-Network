@@ -31,6 +31,7 @@ nn_constrained_nlp/
 ├── configs/experiments.py  every experiment definition (the only file to edit)
 ├── src/                    the library
 │   ├── model.py            network forward pass and weight (un)flattening
+│   ├── deep_model.py       general L-hidden-layer network (used by the depth study)
 │   ├── data.py             synthetic teacher-student and pendulum datasets
 │   ├── constraints.py      Lipschitz / norm-ball / spectral / ordering builders
 │   ├── nlp_builder.py      assembles the CasADi NLP from an experiment config
@@ -47,6 +48,8 @@ nn_constrained_nlp/
 │   ├── exact_penalty.py        exact-penalty threshold sweep
 │   ├── sensitivity.py          achieved sensitivity across seeds
 │   ├── seed_study.py           seed-averaged accuracy comparison
+│   ├── scaling_study.py        matched IPOPT vs penalty-Adam as width grows
+│   ├── depth_study.py          matched IPOPT vs penalty-Adam as depth grows
 │   ├── symmetry_ablation.py    ablation of the bias-ordering constraint
 │   └── report_figures.py       regenerates the report figures
 ├── tests/                  unit tests (model, constraints, warm start)
@@ -77,6 +80,8 @@ studies are run as modules from the repository root, for example:
 ```bash
 python -m experiments.pendulum_convergence
 python -m experiments.exact_penalty
+python -m experiments.scaling_study
+python -m experiments.depth_study
 python -m experiments.symmetry_ablation
 python -m experiments.sensitivity
 ```
