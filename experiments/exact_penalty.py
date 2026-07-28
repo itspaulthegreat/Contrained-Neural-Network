@@ -181,7 +181,7 @@ ax.text(
 )
 ax.set_xscale("log")
 ax.set_xlabel("penalty weight rho (log scale)")
-ax.set_ylabel("achieved sensitivity  ||W1||F ||W2||F")
+ax.set_ylabel("certified bound U(w) = ||w1||2 ||w2||2")
 ax.set_title(
     "Exact hinge penalty vs hard constraint (same bound L = 4)\n"
     "Once rho passes lambda*, increasing rho does not push the solution below L",

@@ -24,7 +24,7 @@ from src.data import pendulum_true
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RESULTS = os.path.join(HERE, "results")
 FIGURES = os.path.join(HERE, "figures")
-plt.rcParams.update({"font.size": 11, "figure.dpi": 150, "savefig.dpi": 150,
+plt.rcParams.update({"font.size": 12, "figure.dpi": 150, "savefig.dpi": 150,
                      "axes.grid": True, "grid.alpha": 0.3})
 
 
@@ -41,7 +41,7 @@ def fig_exact_penalty():
     ax.axhline(L, color="black", ls="--", lw=1.8, label=f"bound $L={L:g}$")
     ax.axvline(lam, color="tab:purple", lw=1.5)
     ax.plot(rho, ach, "o-", color="tab:olive", lw=2, ms=6,
-            label="penalty solution (solved to convergence)")
+            label="converged epigraph solve")
     ax.plot(rho[-1], ip_rate, "*", color="tab:purple", ms=16, zorder=5,
             label=f"hard constraint: {ip_rate:.2f}")
     ax.annotate(r"$\lambda^\star$", xy=(lam, L), xytext=(lam * 1.6, L + 1.6),
@@ -49,7 +49,7 @@ def fig_exact_penalty():
                 arrowprops=dict(arrowstyle="->", color="tab:purple"))
     ax.set_xscale("log")
     ax.set_xlabel(r"penalty weight $\rho$ [-]")
-    ax.set_ylabel(r"achieved sensitivity $\|w_1\|\,\|w_2\|$ [-]")
+    ax.set_ylabel(r"certified bound $U(w)=\|w_1\|_2\|w_2\|_2$ [-]")
     ax.legend(fontsize=8, loc="upper right")
     fig.tight_layout()
     out = os.path.join(FIGURES, "fig_exact_penalty.png")
@@ -100,10 +100,10 @@ def fig_depth():
     ax.plot(depth, [r["ipopt"]["sensitivity"] for r in rows], "o-", color="tab:purple",
             lw=2, ms=7, label="IPOPT (constrained)")
     ax.plot(depth, [r["adam"]["sensitivity"] for r in rows], "s-", color="tab:red",
-            lw=2, ms=7, label="plain Adam (unconstrained)")
+            lw=2, ms=7, label="unconstrained Adam")
     ax.set_yscale("log"); ax.set_xticks(depth)
     ax.set_xlabel("number of hidden layers (depth)")
-    ax.set_ylabel(r"achieved sensitivity $\prod_i \|W_i\|_F$ [-]")
+    ax.set_ylabel(r"Frobenius-product certificate $U_F(w)$ [-]")
     ax.legend(fontsize=8, loc="upper left")
     fig.tight_layout()
     out = os.path.join(FIGURES, "fig_depth.png")
@@ -159,8 +159,13 @@ def fig_pendulum():
 
 
 def fig_convergence():
-    """Optimality residual vs iteration: IPOPT superlinear vs Adam first-order stall.
-    Plotted as the best residual reached so far (a monotone convergence envelope)."""
+    """Optimality diagnostic vs iteration: IPOPT KKT residual vs Adam gradient norm,
+    each as the best value reached so far. The two are different optimizer-specific
+    quantities and are meant to be read qualitatively, not as a rate comparison."""
+    if not os.path.exists(os.path.join(RESULTS, "convergence.json")):
+        print("skip fig_convergence: results/convergence.json not present; "
+              "existing figures/fig_convergence.png retained")
+        return
     d = _load("convergence.json")
     kkt = np.minimum.accumulate(d["ipopt_kkt"])
     grad = np.minimum.accumulate(d["adam_grad"])
