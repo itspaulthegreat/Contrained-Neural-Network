@@ -1,6 +1,5 @@
 """
 src/plotting.py
-──────────────────
 All figures. Each function takes result dict(s) and a save path, and
 writes a PNG. No figure is ever shown interactively (Agg backend) so
 this runs fine from the command line / over SSH.
@@ -13,7 +12,7 @@ import numpy as np
 
 from src.model import param_shapes, forward_numpy
 
-# ── Publication-quality defaults, applied to every figure in this module ─────
+#  Publication-quality defaults, applied to every figure in this module
 plt.rcParams.update({
     'font.size': 11,
     'axes.titlesize': 12,
@@ -33,12 +32,12 @@ METHOD_COLORS = {
 }
 
 
-# ─────────────────────────────────────────────────────────────────────────
+#
 #  Conditions footnote: every comparison figure states its environment
 #  (noise, split, which constraints with which bounds) read from the result
 #  dicts themselves, plus a one-line WHY where a value deviates from the
 #  project defaults (sigma=0.05, H=8, L=4, B=6).
-# ─────────────────────────────────────────────────────────────────────────
+#
 
 def _cons_str(r):
     parts = []
@@ -70,22 +69,22 @@ def conditions_note(fig, results, extra='', split='60 train / 40 test'):
         cs = sorted({_cons_str(r) for r in rr})
         if len(cs) == 1:
             cons.append(f'{m}: {cs[0]}')
-        else:  # a swept bound — collapse to its range
+        else:  # a swept bound - collapse to its range
             bits = []
             Ls = sorted({r['L_max'] for r in rr if r.get('use_lipschitz')})
             Bs = sorted({r['B_max'] for r in rr if r.get('use_norm_ball')})
             if len(Ls) > 1:
-                bits.append(f'Lipschitz L swept {Ls[0]:g}–{Ls[-1]:g}')
+                bits.append(f'Lipschitz L swept {Ls[0]:g}-{Ls[-1]:g}')
             elif Ls:
                 bits.append(f'Lipschitz L≤{Ls[0]:g}')
             if len(Bs) > 1:
-                bits.append(f'ball B swept {Bs[0]:g}–{Bs[-1]:g}')
+                bits.append(f'ball B swept {Bs[0]:g}-{Bs[-1]:g}')
             elif Bs:
                 bits.append(f'ball ‖w‖≤{Bs[0]:g}')
             if any(r.get('use_symmetry_break') for r in rr):
                 bits.append('symmetry')
             cons.append(f'{m}: ' + (' + '.join(bits) if bits else 'unconstrained'))
-    txt = (f"environment — group: {'+'.join(gr)} · σ = {fmt(sig)} · "
+    txt = (f"environment - group: {'+'.join(gr)} · σ = {fmt(sig)} · "
            f"H = {fmt(H)} · {split} · " + ' ; '.join(cons))
     if extra:
         txt += '\n' + extra
@@ -98,9 +97,9 @@ def conditions_note(fig, results, extra='', split='60 train / 40 test'):
     fig.text(0.5, 0.02, txt, fontsize=7, color='dimgray', ha='center')
 
 
-# ─────────────────────────────────────────────────────────────────────────
+#
 #  Single-experiment fit plot (data scatter + learned curve)
-# ─────────────────────────────────────────────────────────────────────────
+#
 
 def plot_fit(res, X_train, y_train, X_test, y_test, x_range, path):
     shapes = param_shapes(1, res['H'], 1)
@@ -124,9 +123,9 @@ def plot_fit(res, X_train, y_train, X_test, y_test, x_range, path):
     plt.close(fig)
 
 
-# ─────────────────────────────────────────────────────────────────────────
+#
 #  Method comparison: IPOPT vs SQP vs Adam
-# ─────────────────────────────────────────────────────────────────────────
+#
 
 def _method_label(r):
     """Bar label that distinguishes the exact-spectral IPOPT run from the
@@ -161,19 +160,19 @@ def plot_method_comparison(results, path):
     axes[1].set_ylabel('Solve time [s]'); axes[1].set_title('Computational cost')
     axes[1].set_yscale('log')
 
-    fig.suptitle('Optimizer comparison — same network, same data, same constraints')
+    fig.suptitle('Optimizer comparison - same network, same data, same constraints')
     fig.tight_layout()
     conditions_note(fig, results,
-                    extra='Group 1 · the project defaults (σ = 0.05, L = 4, B = 6) — '
+                    extra='Group 1 · the project defaults (σ = 0.05, L = 4, B = 6) - '
                           'the baseline configuration every other study deviates from, '
                           'with the deviation stated on its own figure')
     fig.savefig(path)
     plt.close(fig)
 
 
-# ─────────────────────────────────────────────────────────────────────────
+#
 #  Lipschitz bound sweep: train/test MSE trade-off
-# ─────────────────────────────────────────────────────────────────────────
+#
 
 def plot_lipschitz_sweep(results, path):
     results = sorted(results, key=lambda r: r['L_max'])
@@ -210,9 +209,9 @@ def plot_lipschitz_sweep(results, path):
     plt.close(fig)
 
 
-# ─────────────────────────────────────────────────────────────────────────
+#
 #  NLP size scaling: solve time / iterations vs number of decision vars
-# ─────────────────────────────────────────────────────────────────────────
+#
 
 def plot_size_scaling(results, path):
     results = sorted(results, key=lambda r: r['n_vars'])
@@ -237,16 +236,16 @@ def plot_size_scaling(results, path):
     fig.suptitle('NLP scaling with network size (hidden units H)')
     fig.tight_layout()
     conditions_note(fig, results,
-                    extra='Group 3 · H SWEPT 4–64 (the subject) at the defaults · all '
-                          'three constraints ON — the strictest configuration, so the '
+                    extra='Group 3 · H SWEPT 4-64 (the subject) at the defaults · all '
+                          'three constraints ON - the strictest configuration, so the '
                           'cost figures carry the full constraint machinery')
     fig.savefig(path)
     plt.close(fig)
 
 
-# ─────────────────────────────────────────────────────────────────────────
+#
 #  Noise robustness: constrained (IPOPT) vs unconstrained (Adam)
-# ─────────────────────────────────────────────────────────────────────────
+#
 
 def plot_noise_robustness(results, path):
     noise_levels = sorted(set(r['noise_std'] for r in results))
@@ -281,9 +280,9 @@ def plot_noise_robustness(results, path):
     plt.close(fig)
 
 
-# ─────────────────────────────────────────────────────────────────────────
+#
 #  Adam convergence curve
-# ─────────────────────────────────────────────────────────────────────────
+#
 
 def plot_adam_convergence(res, path):
     fig, ax = plt.subplots(figsize=(6, 4))
@@ -291,15 +290,15 @@ def plot_adam_convergence(res, path):
     ax.set_yscale('log')
     ax.set_xlabel('Iteration [-]')
     ax.set_ylabel('Training MSE [-] (log scale)')
-    ax.set_title(f"Adam convergence — {res['name']}")
+    ax.set_title(f"Adam convergence - {res['name']}")
     fig.tight_layout()
     fig.savefig(path)
     plt.close(fig)
 
 
-# ─────────────────────────────────────────────────────────────────────────
+#
 #  Multi-start / local minima study
-# ─────────────────────────────────────────────────────────────────────────
+#
 
 def plot_multistart(results, path):
     train_mse = np.array([r['train_mse'] for r in results])
@@ -317,20 +316,20 @@ def plot_multistart(results, path):
     axes[1].set_ylabel('Lipschitz estimate $\\|W_1\\|_F\\|W_2\\|_F$ [-]')
     axes[1].set_title('Objective vs. achieved Lipschitz value')
 
-    fig.suptitle('Multi-start study — IPOPT from 20 random initializations\n'
+    fig.suptitle('Multi-start study - IPOPT from 20 random initializations\n'
                   '(same data, same $L_{max}$, only init seed differs)')
     fig.tight_layout()
     conditions_note(fig, results,
                     extra='Group 5 · deviation from defaults: init_scale widened '
                           '0.5 → 4.0 (configs/experiments.py) so the starts actually '
-                          'explore different basins — the subject is nonconvexity')
+                          'explore different basins - the subject is nonconvexity')
     fig.savefig(path)
     plt.close(fig)
 
 
-# ─────────────────────────────────────────────────────────────────────────
+#
 #  KKT / dual-variable analysis
-# ─────────────────────────────────────────────────────────────────────────
+#
 
 def plot_kkt_analysis(results, path):
     results = sorted(results, key=lambda r: r['L_max'])
@@ -359,16 +358,16 @@ def plot_kkt_analysis(results, path):
     fig.suptitle('KKT dual-variable analysis of the Lipschitz constraint (IPOPT)')
     fig.tight_layout()
     conditions_note(fig, results,
-                    extra='Group 6 · L_max SWEPT (subject); σ = 0.1 matching Group 2 — '
+                    extra='Group 6 · L_max SWEPT (subject); σ = 0.1 matching Group 2 - '
                           'this study reads the shadow price λ of the same sweep; '
                           'note: each λ belongs to THESE conditions, not other studies\'')
     fig.savefig(path)
     plt.close(fig)
 
 
-# ─────────────────────────────────────────────────────────────────────────
+#
 #  Penalty method (Adam) vs. hard constraint (IPOPT)
-# ─────────────────────────────────────────────────────────────────────────
+#
 
 def plot_penalty_vs_hard(results, path):
     ipopt_ref = [r for r in results if r['method'] == 'ipopt']
@@ -423,9 +422,9 @@ def plot_penalty_vs_hard(results, path):
     plt.close(fig)
 
 
-# ─────────────────────────────────────────────────────────────────────────
+#
 #  Warm-start study (GROUP 8): cold vs. warm over a tightening L_max sweep
-# ─────────────────────────────────────────────────────────────────────────
+#
 
 def plot_warm_start(results, path):
     cold = sorted([r for r in results if r['strategy'] == 'cold'], key=lambda r: r['L_max'])
@@ -457,7 +456,7 @@ def plot_warm_start(results, path):
     axes[1].set_title('Solve time vs. $L_{max}$')
     axes[1].legend(fontsize=8)
 
-    fig.suptitle('Warm-start study — incremental Lipschitz tightening (IPOPT)')
+    fig.suptitle('Warm-start study - incremental Lipschitz tightening (IPOPT)')
     fig.tight_layout()
     conditions_note(fig, results,
                     extra='Group 8 · same solves, two initialization strategies (the '
@@ -467,9 +466,9 @@ def plot_warm_start(results, path):
     plt.close(fig)
 
 
-# ─────────────────────────────────────────────────────────────────────────
+#
 #  Constraint geometry (GROUP 9): which constraint binds as B_max varies
-# ─────────────────────────────────────────────────────────────────────────
+#
 
 def plot_constraint_geometry(results, path):
     results = sorted(results, key=lambda r: r['B_max'])
@@ -498,26 +497,25 @@ def plot_constraint_geometry(results, path):
     axes[1].set_title('Which constraint binds (active $\\Leftrightarrow \\lambda>0$)')
     axes[1].legend(fontsize=8)
 
-    fig.suptitle('Constraint geometry — Lipschitz vs. norm-ball interaction (IPOPT)')
+    fig.suptitle('Constraint geometry - Lipschitz vs. norm-ball interaction (IPOPT)')
     fig.tight_layout()
     conditions_note(fig, results,
-                    extra='Group 9 · B_max SWEPT (subject) at fixed Lipschitz L = 4 — '
+                    extra='Group 9 · B_max SWEPT (subject) at fixed Lipschitz L = 4 - '
                           'watching the duals hand control from the ball to the '
                           'Lipschitz bound between B = 4 and 8')
     fig.savefig(path)
     plt.close(fig)
 
 
-# ─────────────────────────────────────────────────────────────────────────
+#
 #  Complexity race (GROUP 12 + GROUP 3): all solvers vs growing NLP size
-# ─────────────────────────────────────────────────────────────────────────
+#
 
 def plot_complexity(results, path):
-    """results: the 'complexity' group (adam + gauss_newton per H) PLUS the
-    'size_scaling' group (constrained IPOPT per H) — same data and sizes."""
+    """results: the 'complexity' group (adam per H) PLUS the 'size_scaling'
+    group (constrained IPOPT per H) - same data and sizes."""
     series = [
         ('ipopt', 'IPOPT (constrained, exact Hessian)', METHOD_COLORS['ipopt'], 'o'),
-        ('gauss_newton', 'Gauss-Newton/LM (unconstrained)', 'tab:red', 'd'),
         ('adam', 'Adam (unconstrained)', METHOD_COLORS['adam'], 's'),
     ]
     fig, axes = plt.subplots(1, 2, figsize=(10, 4.5))
@@ -547,20 +545,20 @@ def plot_complexity(results, path):
     axes[1].set_title('Generalization vs. size')
     axes[1].legend(fontsize=8)
 
-    fig.suptitle('Complexity race — same data, growing network (H = 4 → 64)\n'
-                  '(IPOPT solves the constrained problem; Adam and GN/LM the unconstrained one)')
+    fig.suptitle('Complexity race - same data, growing network\n'
+                  '(IPOPT solves the constrained problem; Adam the unconstrained one)')
     fig.tight_layout()
     conditions_note(fig, results,
                     extra='Group 12 + Group 3 · H SWEPT (subject) · the IPOPT curve is the '
                           'Group-3 runs (all constraints ON), so its cost also carries the '
-                          'constraint machinery; GN/LM and Adam run unconstrained')
+                          'constraint machinery; Adam runs unconstrained')
     fig.savefig(path)
     plt.close(fig)
 
 
-# ─────────────────────────────────────────────────────────────────────────
+#
 #  Pendulum system ID (GROUP 13): physical task, physical units
-# ─────────────────────────────────────────────────────────────────────────
+#
 
 def plot_pendulum(results, X_train, y_train, path):
     from src.data import pendulum_true
@@ -582,12 +580,12 @@ def plot_pendulum(results, X_train, y_train, path):
         shapes = param_shapes(1, r['H'], 1)
         ys = forward_numpy(np.array(r['w']), ts.reshape(1, -1), shapes)
         ax.plot(ts, ys.flatten(), color=color, ls=ls, lw=2,
-                label=f"{label} — test MSE {r['test_mse']:.4f}")
+                label=f"{label} - test MSE {r['test_mse']:.4f}")
 
     ax.set_xlabel('time $t$ [s]')
     ax.set_ylabel('angle $\\theta$ [rad]')
     ax.legend(fontsize=8, loc='upper right')
-    fig.suptitle('Physical task — damped-pendulum system identification\n'
+    fig.suptitle('Physical task - damped-pendulum system identification\n'
                   'the Lipschitz bound caps the model\'s angular rate '
                   '$|\\mathrm{d}\\hat{\\theta}/\\mathrm{d}t| \\leq L_{max}$')
     fig.tight_layout()
@@ -598,9 +596,9 @@ def plot_pendulum(results, X_train, y_train, path):
     plt.close(fig)
 
 
-# ─────────────────────────────────────────────────────────────────────────
+#
 #  Pendulum constraint-selection sweep (GROUP 14): L_max is CHOSEN, not guessed
-# ─────────────────────────────────────────────────────────────────────────
+#
 
 def plot_pendulum_sweep(results, path, true_rate=1.61):
     """test MSE vs L_max on the physical pendulum task -- a clean
@@ -643,16 +641,14 @@ def plot_pendulum_sweep(results, path, true_rate=1.61):
     plt.close(fig)
 
 
-# ─────────────────────────────────────────────────────────────────────────
+#
 #  Convergence rate (GROUP 10): KKT residual vs. iteration, IPOPT vs. Adam
-# ─────────────────────────────────────────────────────────────────────────
+#
 
 def _conv_style(r):
     """(label, color, linestyle) for one convergence_rate run."""
     if r['method'] == 'adam':
         return 'Adam (unconstrained, $\\|\\nabla f\\|_\\infty$)', METHOD_COLORS['adam'], '-'
-    if r['method'] == 'gauss_newton':
-        return 'Gauss-Newton/LM (unconstrained, self-implemented)', 'tab:red', '-.'
     if r.get('use_lipschitz'):
         return 'IPOPT (Lipschitz-constrained)', 'tab:purple', '--'
     return 'IPOPT (unconstrained)', METHOD_COLORS['ipopt'], '-'
@@ -694,20 +690,20 @@ def plot_convergence_rate(results, path):
     axes[1].set_title('Zoom on IPOPT range: superlinear tail')
     axes[1].legend(fontsize=8)
 
-    fig.suptitle('Convergence rate — KKT residual per iteration\n'
+    fig.suptitle('Convergence rate - KKT residual per iteration\n'
                   '(same objective, same data, same initial guess $w_0$)')
     fig.tight_layout()
     conditions_note(fig, results,
                     extra='Group 10 · constrained run: Lipschitz ONLY at L = 1 (below the '
                           'unconstrained optimum Lip ≈ 1.59, so it binds and isolates the '
-                          'minimizer — norm-ball and symmetry OFF in that run)')
+                          'minimizer - norm-ball and symmetry OFF in that run)')
     fig.savefig(path)
     plt.close(fig)
 
 
-# ─────────────────────────────────────────────────────────────────────────
+#
 #  Hessian comparison (GROUP 11): exact vs. L-BFGS Hessian in IPOPT
-# ─────────────────────────────────────────────────────────────────────────
+#
 
 def plot_hessian_comparison(results, path):
     fig, axes = plt.subplots(1, 2, figsize=(9, 4))
@@ -743,6 +739,6 @@ def plot_hessian_comparison(results, path):
     fig.tight_layout()
     conditions_note(fig, results,
                     extra='Group 11 · Hessian mode is the subject · both variants run at '
-                          'tol 1e-4 — the best L-BFGS can reach, so the comparison is fair')
+                          'tol 1e-4 - the best L-BFGS can reach, so the comparison is fair')
     fig.savefig(path)
     plt.close(fig)

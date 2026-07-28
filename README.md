@@ -1,297 +1,100 @@
-# Neural Network Weight Optimization as a Constrained NLP
+# Neural Network Training as a Constrained Nonlinear Program
 
-## What this project actually is (plain English)
+Training a small neural network, written as a constrained nonlinear program
+(NLP) and solved with an interior-point method, and compared against the
+standard machine-learning approach of soft penalties trained by Adam.
 
-Normally, people train a neural network with gradient descent (Adam) and add
-regularization as a *penalty* in the loss. Here, instead, we treat finding
-the network's weights as a **Nonlinear Program (NLP)** and solve it with a
-real NLP solver (**IPOPT**, interior-point; and **SQP**), and we enforce
-regularization as **hard constraints** rather than penalties.
+## Idea
 
-The neural network is not the point of the project — it is just a
-convenient, nontrivial, nonconvex function to optimize. The point is the
-**optimization problem**: the decision variables, the objective, and three
-specific constraints, and what happens to the solution as you change them.
+The weights of a one-hidden-layer `tanh` network are the decision variables of
+an NLP whose objective is the mean-squared training error and whose constraints
+encode properties the trained model must satisfy:
 
-### The optimization problem
+- **Lipschitz (sensitivity) bound** `‖w1‖² ‖w2‖² ≤ L²` - bounds how fast the
+  output can change with the input (bilinear, nonconvex).
+- **Norm ball** `‖w‖² ≤ B²` - a hard version of L2 regularization (convex).
+- **Bias ordering** `b1[0] ≤ … ≤ b1[H-1]` - removes the permutation symmetry of
+  the hidden units (linear).
 
-- **Decision variables**: `w` = all the weights and biases of a small
-  1-hidden-layer network, flattened into one vector
-  (`W1, b1, W2, b2` → `w ∈ R^n`).
-- **Objective**: minimize mean-squared training error
-  `f(w) = (1/N) Σ (f(xᵢ; w) − yᵢ)²`.
-- **Constraints** (each independently switchable):
-  1. **Lipschitz bound** (bilinear, nonconvex):
-     `‖W1‖_F² · ‖W2‖_F² ≤ L_max²` — caps how fast the network's output can
-     change, a hard cap on model "sensitivity"/complexity.
-  2. **Norm-ball** (convex quadratic): `‖w‖₂² ≤ B_max²` — the constrained
-     analogue of L2 regularization.
-  3. **Symmetry-breaking** (linear): `b1[0] ≤ b1[1] ≤ ... ≤ b1[H-1]` —
-     removes the relabeling symmetry of hidden units (every permutation of
-     hidden neurons is an equivalent solution; this kills the redundancy).
-- **Solvers compared**: IPOPT (interior point), SQP (sequential quadratic
-  programming, via CasADi's `sqpmethod`), and Adam (unconstrained gradient
-  descent — the baseline everyone already uses).
+The NLP is built symbolically with [CasADi](https://web.casadi.org/) and solved
+with [IPOPT](https://github.com/coin-or/Ipopt). The interior-point solve
+satisfies the constraints to solver tolerance; the penalty baselines (Adam,
+AdamW, penalty-Adam) only approach this behaviour under conditions that are easy
+to get wrong. The network is a convenient nonconvex function on which to study
+the optimization problem, not the point of the project.
 
-### The four research questions (and what we found)
-
-1. **IPOPT vs SQP vs Adam** — same network, same data: which gets a better
-   fit, and at what computational cost?
-2. **Lipschitz bound sweep** — as `L_max` tightens, how does the
-   train/test MSE trade-off move? (This is the generalization-vs-fit
-   curve — the "money plot" of the project.)
-3. **NLP size scaling** — how do solve time and IPOPT iteration count grow
-   as the network (and hence the NLP) gets bigger?
-4. **Noise robustness** — under noisy labels, does the hard-constrained
-   solve generalize better than unconstrained Adam?
-
-The data itself is synthetic and "teacher-student": a small fixed random
-network generates the ground-truth curve, we add Gaussian noise, and the
-student network (the one we optimize) has to recover it. This keeps the
-regression problem simple and 1-D so you can literally see the fit on a
-plot, while still being a real nonconvex optimization problem.
-
----
-
-## Folder structure
+## Layout
 
 ```
 nn_constrained_nlp/
-├── README.md                 ← this file
-├── requirements.txt
-├── configs/
-│   ├── __init__.py
-│   └── experiments.py        ← the ONLY file you need to edit to add/change experiments
-├── src/
-│   ├── data.py               ← synthetic teacher-student dataset generator
-│   ├── model.py               ← network forward pass (NumPy + CasADi symbolic), flatten/unflatten
-│   ├── constraints.py         ← Lipschitz / norm-ball / symmetry-breaking constraint builders
-│   ├── nlp_builder.py         ← assembles the CasADi NLP (decision vars, objective, constraints)
-│   ├── baseline_adam.py       ← unconstrained Adam optimizer (uses CasADi for the gradient)
-│   ├── solver.py               ← solve(): dispatches to IPOPT / SQP / Adam, unified result format
-│   ├── analysis.py             ← Lipschitz estimate, constraint-violation metrics
-│   ├── logger.py                ← saves results/*.json + results/summary.csv
-│   └── plotting.py              ← every figure
-├── results/                   ← auto-generated JSON + summary.csv (git-ignored)
-├── figures/                   ← auto-generated PNGs (git-ignored)
-├── tests/
-│   ├── test_model.py           ← flatten/unflatten roundtrip, NumPy==CasADi forward pass check
-│   └── test_constraints.py     ← each constraint computes the value/bounds you'd expect by hand
-└── main.py                     ← CLI entry point
+├── main.py                 CLI that runs the experiment groups in configs/
+├── configs/experiments.py  every experiment definition (the only file to edit)
+├── src/                    the library
+│   ├── model.py            network forward pass and weight (un)flattening
+│   ├── deep_model.py       general L-hidden-layer network (used by the depth study)
+│   ├── data.py             synthetic teacher-student and pendulum datasets
+│   ├── constraints.py      Lipschitz / norm-ball / spectral / ordering builders
+│   ├── nlp_builder.py      assembles the CasADi NLP from an experiment config
+│   ├── solver.py           dispatches to IPOPT / SQP / Adam, unified result dict
+│   ├── baseline_adam.py    Adam / AdamW baseline
+│   ├── penalty_adam.py     hinge-penalty baseline
+│   ├── analysis.py         sensitivity estimate, violation, conditioning
+│   ├── callbacks.py        IPOPT per-iteration callback
+│   └── ...                 kkt, multistart, warm_start, convergence, plotting
+├── experiments/            standalone studies that build on the library
+│   ├── synthetic_protocol.py   three-way-split study on synthetic data
+│   ├── pendulum_protocol.py    validation-based pendulum system ID
+│   ├── pendulum_convergence.py hard vs soft, run to convergence
+│   ├── exact_penalty.py        exact-penalty threshold sweep
+│   ├── sensitivity.py          achieved sensitivity across seeds
+│   ├── seed_study.py           seed-averaged accuracy comparison
+│   ├── scaling_study.py        matched IPOPT vs penalty-Adam as width grows
+│   ├── depth_study.py          matched IPOPT vs penalty-Adam as depth grows
+│   ├── symmetry_ablation.py    ablation of the bias-ordering constraint
+│   └── report_figures.py       regenerates the report figures
+├── tests/                  unit tests (model, constraints, warm start)
+├── results/                generated JSON results
+└── figures/                generated figures
 ```
 
-This mirrors the structure of the double-pendulum project (`files/`) on
-purpose, so both projects look like the same "house style": all tunable
-numbers live in `configs/`, all logic lives in `src/`, and `results/` /
-`figures/` are throwaway, regenerable outputs.
+## Install
 
----
-
-## How to run it (step by step)
-
-**1. Install dependencies** (from inside `nn_constrained_nlp/`):
 ```bash
 pip install -r requirements.txt
 ```
-(If you already have `casadi`, `numpy`, `scipy`, `matplotlib` installed
-globally — e.g. from the double-pendulum project — you don't need to do
-anything else.)
 
-**2. Run the unit tests** (sanity check that the math is wired correctly):
-```bash
-python -m pytest tests/ -v
-```
-Expect: `10 passed` in a few seconds.
+## Run
 
-**3. See what would run, without running it:**
-```bash
-python main.py --dry-run
-```
-Expect: a list of 101 experiments across 14 groups
-(`method_comparison`, `lipschitz_sweep`, `size_scaling`, `noise_robustness`,
-`multistart`, `kkt_analysis`, `penalty_vs_hard`, `warm_start`,
-`constraint_geometry`, `convergence_rate`, `hessian_comparison`,
-`complexity`, `pendulum`, `pendulum_sweep`).
+The experiment harness runs the groups defined in `configs/experiments.py`:
 
-**4. Run everything:**
 ```bash
-python main.py
-```
-Expect: ~1-2 minutes total wall time, a results table printed at the end,
-~100 JSON files + `summary.csv` in `results/`, and ~110 PNGs in `figures/`.
-
-**5. Run just one group** (useful while iterating):
-```bash
-python main.py --group lipschitz_sweep
-python main.py --group method_comparison
-python main.py --group size_scaling
-python main.py --group noise_robustness
+python main.py --dry-run                 # list the experiments
+python main.py --group size_scaling      # one group
+python main.py --group complexity
+python main.py --name exp_method_ipopt    # a single experiment
 ```
 
-**6. Run a single experiment:**
+Results are written to `results/` and figures to `figures/`. The standalone
+studies are run as modules from the repository root, for example:
+
 ```bash
-python main.py --name exp_method_ipopt
+python -m experiments.pendulum_convergence
+python -m experiments.exact_penalty
+python -m experiments.scaling_study
+python -m experiments.depth_study
+python -m experiments.symmetry_ablation
+python -m experiments.sensitivity
 ```
 
-**7. Skip figure generation** (faster, e.g. while debugging the solver):
+After the studies have produced their result files, regenerate the report
+figures with:
+
 ```bash
-python main.py --no-plots
+python -m experiments.report_figures
 ```
 
-**8. Build the presentation animations** (after `python main.py` has run at
-least once — two of the four animations replay stored results):
+## Tests
+
 ```bash
-python animate.py                 # all four GIFs into figures/
-python animate.py --only race     # or one at a time: intro / sweep / race / complexity
+python -m pytest tests/
 ```
-Expect: 4 GIFs in `figures/` (`anim_problem_intro`, `anim_lipschitz_sweep`,
-`anim_solver_race`, `anim_complexity`), ~1-2 minutes total. They animate when
-opened in a browser or in a running PowerPoint slideshow.
-
----
-
-## What results you should see
-
-Numbers will vary very slightly by machine/IPOPT version, but the
-*pattern* should always look like this:
-
-### Group 1 — method comparison (`fig_method_comparison.png`)
-IPOPT and SQP land on essentially the same solution (train MSE ≈ 0.0018,
-test MSE ≈ 0.0031) because they're solving the same constrained NLP to
-the same first-order optimality conditions. Adam (unconstrained) gets a
-slightly different point (train MSE ≈ 0.0022, test MSE ≈ 0.0029) because
-it isn't solving the same problem — there's no constraint to satisfy.
-On **cost**: IPOPT converges in ~250-300 iterations and well under a
-second; SQP needs ~2000+ iterations (it's using a BFGS Hessian
-approximation so it has only first-order curvature information) and is
-noticeably slower; Adam takes its full 3000 iterations every time
-(fixed budget, no stopping criterion beyond a tiny tolerance).
-
-### Group 2 — Lipschitz sweep (`fig_lipschitz_sweep.png`)
-This is the key plot. As `L_max` grows from 0.5 to 32:
-- **train MSE goes down** (~0.010 → ~0.005): more capacity, better fit.
-- **test MSE goes up** (~0.011 → ~0.018): the network starts overfitting
-  once it's no longer capacity-limited.
-- The right-hand panel shows the *achieved* `‖W1‖_F·‖W2‖_F` tracks the
-  bound almost exactly at every level — i.e. the constraint is **active**
-  (binding) the whole way, confirming it's actually doing something, not
-  just sitting there unused.
-
-### Group 3 — size scaling (`fig_size_scaling.png`)
-Solve time grows from ~0.15s (H=4, 13 weights) to ~7s (H=64, 193 weights)
-— clearly superlinear, since IPOPT's per-iteration cost involves a
-Hessian factorization that grows with problem size. Iteration count grows
-much more mildly (roughly 130 → 330). This is the evidence for "how does
-solver cost scale with NLP dimension."
-
-### Group 4 — noise robustness (`fig_noise_robustness.png`)
-At noise σ=0 both methods get essentially zero error (nothing to overfit
-to). As σ increases to 0.1 and 0.3, both methods' test MSE grows, and the
-constrained (IPOPT) and unconstrained (Adam) solutions stay close to each
-other — with the defaults in `configs/experiments.py`, the constraints
-are loose enough that this isn't a dramatic difference. **If you want a
-more dramatic story for the report**, tighten `L_max`/`B_max` for this
-group in `configs/experiments.py` (e.g. `L_max=1.5`) and re-run — a
-tighter cap should widen the gap in IPOPT's favor at high noise.
-
-### Group 10 — convergence rate (`fig_convergence_rate.png`)
-KKT residual per iteration, same objective / data / initial guess for all
-four runs. Adam (first-order) stalls at a residual of ~2e-4 after its full
-3000 iterations. Gauss-Newton/Levenberg-Marquardt (self-implemented in
-`src/gauss_newton.py`, course notes §6.6–6.7) crashes to 1e-4 within ~15
-Jacobian-cheap iterations — territory Adam never reaches — then stalls at
-its theory-predicted floor (nonzero residuals + singular JᵀJ ⇒ linear rate,
-LM damping mandatory). IPOPT (Newton-type) reaches 1e-6 on the same
-unconstrained problem, and on the Lipschitz-constrained problem (L_max = 1, the only constraint in that run) shows the
-textbook **superlinear tail** — the residual plunges from 1e-5 to 1e-9 in
-the last ~3 iterations (iteration ~150). One subtlety worth reporting: the
-*unconstrained* problem's minimizers are non-isolated (hidden-unit
-permutation symmetry + overparameterization ⇒ singular Hessian), so even
-IPOPT loses its superlinear rate there and needs a relaxed tolerance
-(1e-6); the active constraints remove enough degeneracy to restore it.
-
-### Group 11 — exact vs. L-BFGS Hessian (`fig_hessian_comparison.png`)
-The same constrained NLP at every network size, solved with IPOPT's exact
-(AD) Hessian vs. its limited-memory BFGS approximation, both at tol=1e-4
-(the tolerance both can attain — with L-BFGS, IPOPT cannot reach even 1e-5
-in 5000 iterations on this degenerate landscape, which is itself the
-headline finding). Exact: 23–41 iterations at every size. L-BFGS: 328–4347
-iterations and 10–300× more wall time. On a dense ~200-variable NLP the
-per-iteration savings of skipping the Hessian never pay for the lost
-curvature information.
-
-### Group 12 — complexity race (`fig_complexity.png`, `anim_complexity.gif`)
-Adam and the self-implemented Gauss-Newton/LM run at the same sizes and data
-as the size-scaling group (H = 4→64), so the scaling story becomes a
-comparison. Cost: Adam stays nearly flat while both exact methods grow
-steeply (each factorizes an O(n³) dense system). Generalization (the
-punchline): unconstrained GN/LM overfits as capacity grows — train MSE
-halves while test MSE deteriorates 0.0027 → 0.0044; Adam is protected only
-by its own stall; the constrained IPOPT solve stays at test 0.0031 with
-violation 0 at every size — protected by design, not by accident.
-
-### Group 13 — pendulum system ID (`fig_pendulum.png`)
-The same machinery on a physically meaningful task: identify a damped
-pendulum's free response theta(t) [rad] from simulated noisy angle
-measurements
-(omega = 2 rad/s, zeta = 0.15, t in [0, 6] s). The Lipschitz bound acquires
-physical units — it certifies |d theta_hat/dt| <= L_max rad/s. The certified
-fit (L_max = 4) matches/beats unconstrained Adam (test MSE 0.0029 vs 0.0032)
-while carrying the guarantee; the over-tight run (L_max = 1, below the true
-~2 rad/s) shows a certified underfit — the constraint dial in rad/s.
-
-### Sensitivity table & the "why not tune weight decay" answer (`sensitivity_study.py`)
-Run `python sensitivity_study.py`: the achieved sensitivity ||W1||_F||W2||_F
-across 15 seeds. IPOPT: mean 4.00, std 0.00, max 4.00, 0/15 violations of a
-bound of 4 -- every seed, by construction. Best tuned AdamW at sigma=0.3: mean
-11.6, std 9.6, max 36, and violates a bound of 4 in ALL 15 runs. The wd-sweep
-figure shows the achieved-sensitivity band never collapses onto the target --
-there is no weight-decay value that reliably yields Lipschitz = 4. Weight decay
-nudges sensitivity; only the hard constraint sets it.
-
-### The seed study — best vs best, honest (`fig_seed_study.png`, `seed_study.py`)
-Run `python seed_study.py`: 15 random noise draws per method, Adam given its
-best tuned weight decay (AdamW). Honest finding -- on FIT it is a trade: at
-sigma=0.1 regularized Adam wins (IPOPT 2/15 seeds), at sigma=0.3 IPOPT wins
-(12/15). We do NOT claim hard constraints fit better everywhere. The
-un-tradeable win: IPOPT sensitivity is exactly 4.00 every seed; even tuned
-AdamW floats to 2.6 / 11.6 -- weight decay nudges sensitivity, it cannot set it.
-
-### The motivation figure (`fig_motivation.png`, `motivation_figure.py`)
-Run `python motivation_figure.py` (after main.py): the problem the project
-solves, shown from its own results. Left: unconstrained sensitivity is
-uncontrolled -- 0.94 (sigma=0) to 11.5 (sigma=0.3) to 126 (H=64). Right: the
-penalty workaround is a hyperparameter guess -- requirement ignored at small
-rho, entire usable range inside rho in [1e-5, 1e-4].
-
-### Certified robustness demo (`fig_robustness.png`, `robustness_demo.py`)
-The real-world reading of the Lipschitz constraint: |f(x+d) - f(x)| <=
-L_max*|d| for every input and every perturbation -- a robustness certificate
-chosen before training. Run `python robustness_demo.py` (after main.py): the
-constrained net's guaranteed ceiling is 4*eps; Adam's is 11.5*eps, discovered
-only after training -- a 2.9x higher safety budget. Pure analysis of stored
-weights, no re-training.
-
-### Group 14 — constraint-selection sweep (`fig_pendulum_sweep.png`)
-Answers "isn't L_max arbitrary?" On the pendulum task, sweeping L_max over
-0.5..12 rad/s gives a clean under-fit -> optimum -> plateau curve: test MSE
-0.105 at L=0.5 (cap below the physics), 0.0029 at the optimum L=4, flat after.
-The pendulum's true max rate is 1.61 rad/s; the under-fit region sits exactly
-below it. The value is read off the generalization curve and checked against a
-known physical bound -- not guessed.
-
-### Per-experiment fit plots
-Every experiment also gets its own `figures/<name>.png`: training/test
-points scattered against the learned curve. These are good "proof it
-actually works" figures for slides — you can visually see the fit
-tighten or loosen as you change `L_max`.
-
----
-
-## Editing experiments
-
-Everything you'd want to change lives in `configs/experiments.py`:
-`H` (network size), `L_max`/`B_max` (constraint tightness), `noise_std`,
-which constraints are switched on, IPOPT/SQP/Adam solver settings. Change
-a value, set `enabled=False` on anything you don't want to run, and
-re-run `python main.py`.

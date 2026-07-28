@@ -1,6 +1,5 @@
 """
 src/analysis.py
-─────────────────
 Post-hoc metrics computed from a solved weight vector: the achieved
 Lipschitz estimate and the worst constraint violation. Used to sanity
 check that IPOPT/SQP solutions actually respect the constraints they

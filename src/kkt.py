@@ -1,6 +1,5 @@
 """
 src/kkt.py
-────────────
 KKT / dual-variable analysis.
 
 When IPOPT solves a constrained NLP it also computes a Lagrange

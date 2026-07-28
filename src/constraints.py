@@ -1,6 +1,5 @@
 """
 src/constraints.py
-────────────────────
 Constraint builders for the constrained-NLP formulation. Each function
 returns (g_expr, lb, ub) -- a CasADi expression plus its numeric
 bounds, in the format `casadi.nlpsol` expects for `g`, `lbg`, `ubg`.

@@ -1,6 +1,5 @@
 """
 src/nlp_builder.py
-─────────────────────
 Assembles the constrained NLP that is the actual subject of this project:
 
     decision vars : w        (flattened network weights)

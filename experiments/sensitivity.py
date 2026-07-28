@@ -1,6 +1,5 @@
 """
 sensitivity_study.py
-──────────────────────
 The project's core contribution, made quantitative, and the answer to
 "why not just tune the weight decay until Adam reaches sensitivity 4?"
 
@@ -32,10 +31,12 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 
-from seed_study import run_ipopt, run_adam, tune_wd, N_SEEDS
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from experiments.seed_study import run_ipopt, run_adam, tune_wd, N_SEEDS
 
-FIGURES = os.path.join(os.path.dirname(__file__), 'figures')
-RESULTS = os.path.join(os.path.dirname(__file__), 'results')
+FIGURES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'figures')
+RESULTS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'results')
 TARGET = 4.0
 WD_SWEEP = [0.0, 1e-4, 3e-4, 1e-3, 3e-3, 1e-2, 3e-2, 1e-1]
 
@@ -98,9 +99,9 @@ def raw_distribution_figure(table):
     fig.tight_layout()
     fig.subplots_adjust(bottom=0.22)
     fig.text(0.5, 0.02,
-             'environment — same runs as the seed study: 15 seeds, 60 train / 40 test, H = 8, σ = 0.1/0.3 · '
+             'environment - same runs as the seed study: 15 seeds, 60 train / 40 test, H = 8, σ = 0.1/0.3 · '
              'IPOPT: L = 4 + ball 6 + symmetry · AdamW: unconstrained, tuned wd = 0.01\n'
-             'every seed plotted individually — nothing averaged away',
+             'every seed plotted individually - nothing averaged away',
              fontsize=7, color='dimgray', ha='center')
     path = os.path.join(FIGURES, 'fig_sensitivity_dist.png')
     fig.savefig(path)
@@ -132,7 +133,7 @@ def wd_sweep_figure(sigma=0.3):
     # nothing on the plot covers territory no run ever visited (honest on a
     # log axis where a mean±std band of skewed data would balloon downward)
     ax.fill_between(x, vmin, vmax, color='tab:olive', alpha=0.25,
-                    label=f'AdamW achieved sensitivity: observed range over {N_SEEDS} seeds (min–max)')
+                    label=f'AdamW achieved sensitivity: observed range over {N_SEEDS} seeds (min-max)')
     ax.plot(x, med, 'o-', color='tab:olive', label='median seed')
     ax.axhline(TARGET, color='tab:purple', lw=2.5,
                label='IPOPT: exactly 4.00, every seed (zero spread)')
@@ -151,9 +152,9 @@ def wd_sweep_figure(sigma=0.3):
     fig.tight_layout()
     fig.subplots_adjust(bottom=0.22)
     fig.text(0.5, 0.02,
-             'environment — σ = 0.3, 15 seeds per point, 60 train / 40 test, H = 8 · AdamW unconstrained, '
+             'environment - σ = 0.3, 15 seeds per point, 60 train / 40 test, H = 8 · AdamW unconstrained, '
              'weight decay SWEPT (x-axis, the subject)\n'
-             'reference line: IPOPT with the hard Lipschitz bound L = 4 (+ ball 6 + symmetry) — '
+             'reference line: IPOPT with the hard Lipschitz bound L = 4 (+ ball 6 + symmetry) - '
              'the target 4 is the certified bound itself',
              fontsize=7, color='dimgray', ha='center')
     path = os.path.join(FIGURES, 'fig_wd_vs_sensitivity.png')

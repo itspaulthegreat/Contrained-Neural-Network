@@ -1,6 +1,5 @@
 """
 main.py
-────────
 Entry point. Run with:
 
     python main.py                          # run all enabled experiments
@@ -35,7 +34,7 @@ from src.plotting import (plot_fit, plot_method_comparison, plot_lipschitz_sweep
 # run_experiment() below. warm_start runs a whole tightening sweep at once and
 # is handled specially in the main loop.
 from src import (kkt, multistart, penalty_adam, warm_start, constraint_geometry,
-                 convergence, gauss_newton)
+                 convergence)
 
 RESULTS_DIR = os.path.join(os.path.dirname(__file__), 'results')
 FIGURES_DIR = os.path.join(os.path.dirname(__file__), 'figures')
@@ -60,8 +59,6 @@ def run_experiment(exp):
         )
     if exp['method'] == 'penalty_adam':
         res = penalty_adam.solve_penalty_adam(exp, X_train, y_train, X_test, y_test)
-    elif exp['method'] == 'gauss_newton':
-        res = gauss_newton.solve_gauss_newton(exp, X_train, y_train, X_test, y_test)
     elif exp.get('group') == 'kkt_analysis':
         res = kkt.solve_with_dual(exp, X_train, y_train, X_test, y_test)
     elif exp.get('group') == 'constraint_geometry':
@@ -174,7 +171,7 @@ def main():
     print()
 
     if args.dry_run:
-        print('DRY RUN — experiments that would execute:')
+        print('DRY RUN - experiments that would execute:')
         for e in exps:
             print(f'  [{e["group"]:20s}]  {e["name"]:28s}  method={e["method"]:6s}  H={e["H"]}')
         return

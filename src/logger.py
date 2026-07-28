@@ -1,10 +1,9 @@
 """
 src/logger.py
-───────────────
 Save and load experiment results.
 Every run is appended to:
-  results/summary.csv     — one row per experiment (scalar metrics only)
-  results/<name>.json     — full result for that experiment (incl. weights, history)
+  results/summary.csv     - one row per experiment (scalar metrics only)
+  results/<name>.json     - full result for that experiment (incl. weights, history)
 """
 
 import os

@@ -1,10 +1,9 @@
-# ── regenerable outputs (see README: results/ and figures/ are throwaway,
-#    recreated by `python main.py` / `python animate.py`) ────────────────────
+# Regenerable outputs (recreated by main.py and the experiments scripts)
 results/
 figures/
 reports/
 
-# ── Python cruft ─────────────────────────────────────────────────────────────
+# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -12,17 +11,17 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 
-# ── environments ─────────────────────────────────────────────────────────────
+# Environments
 .venv/
 venv/
 env/
 
-# ── editor / tool state ──────────────────────────────────────────────────────
+# Editor / tool state
 .claude/
 .vscode/
 .idea/
 
-# ── OS noise ─────────────────────────────────────────────────────────────────
+# OS
 Thumbs.db
 Desktop.ini
 .DS_Store

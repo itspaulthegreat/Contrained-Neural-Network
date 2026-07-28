@@ -1,6 +1,5 @@
 """
 src/baseline_adam.py
-──────────────────────
 Unconstrained baseline: plain Adam gradient descent on the same MSE
 objective, with no constraints at all. This is the "what everyone
 already does" reference point the constrained-NLP (IPOPT / SQP)

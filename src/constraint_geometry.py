@@ -1,6 +1,5 @@
 """
 src/constraint_geometry.py
-─────────────────────────────
 Constraint-geometry / constraint-interaction study (GROUP 9).
 
 The Lipschitz bound and the weight norm-ball are switched on together and the

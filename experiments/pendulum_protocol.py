@@ -1,25 +1,19 @@
 """
 pendulum_protocol.py
-──────────────────────
-The slide-5 protocol applied to the PHYSICAL task — closing the last
-selection-bias gap and making the pendulum comparison best-vs-best:
+A validation-based protocol for the physical task, making the comparison
+between the hard-constrained solve and the tuned baselines fair (best vs best):
 
-    TRAIN      (60 pts of theta(t)) — fit the weights
-    VALIDATION (60 pts)             — choose L_max for IPOPT *and* the
+    TRAIN      (60 pts of theta(t)) - fit the weights
+    VALIDATION (60 pts)             - choose L_max for IPOPT *and* the
                                       weight decay for AdamW (same rules
-                                      for both sides — best vs best)
-    TEST       (60 pts)             — untouched; the honest final numbers
+                                      for both sides - best vs best)
+    TEST       (60 pts)             - untouched; the honest final numbers
 
-Why this exists: Group 14 reads its "best L" off the TEST curve — fine as
-a landscape illustration, but it is selection on test. This script selects
-on validation only. It also upgrades the baseline from plain Adam to
-validation-tuned AdamW.
+Every hyper-parameter (L_max for IPOPT, weight decay for AdamW, rho for the
+penalty) is selected on the validation set only; the test set is scored once.
+The per-L validation MSEs and the runner-up test result are printed as well.
 
-Also prints (first) the slide-5 sweep's exact per-L validation MSEs, so
-"why did the argmin pick 0.15 and not 0.1" is answered by displayed
-numbers, and the test result at the runner-up L for robustness.
-
-    python pendulum_protocol.py        (~2 min)
+    python -m experiments.pendulum_protocol
 """
 
 import json
@@ -28,6 +22,8 @@ import os
 import numpy as np
 import casadi as ca
 
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.data import pendulum_true
 from src.model import (param_shapes, n_params, forward_symbolic, mse_numpy,
                        random_init, unflatten_symbolic)
@@ -52,7 +48,7 @@ RHO_GRID = [1e-4, 1e-3, 1e-2, 1e-1, 1.0, 10.0]
 # identical budget -- otherwise a run that halts sooner looks 'better
 # behaved' purely because early stopping is itself implicit regularization.
 N_ADAM = 3000
-RESULTS = os.path.join(os.path.dirname(__file__), 'results')
+RESULTS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'results')
 
 
 def three_way_split_pendulum(seed=SEED, n=60, sigma=SIGMA):
@@ -110,7 +106,7 @@ def protocol_at(sigma, seed=SEED, verbose=False):
 
 def wd_diagnostic(sigma=SIGMA, seed=SEED):
     """Why does PLAIN Adam show a lower achieved rate than tuned AdamW?
-    Two effects, separated here so the slide cannot be misread:
+    Two effects are separated here:
 
       1. EARLY STOPPING. adam_optimize halts when the loss change drops
          below 1e-9. wd = 0 halts at ~2,000 iterations, wd >= 3e-4 runs the
@@ -169,7 +165,7 @@ def noise_sweep(sigmas=(0.05, 0.1, 0.15, 0.2, 0.3)):
 
 
 def fit_ipopt(Xtr, ytr, L, B=None, full=False):
-    """ALL THREE constraints (2026-07-20): the Lipschitz bound (L rad/s, the
+    """All three constraints: the Lipschitz bound (L rad/s, the
     certificate), the norm ball (||w||^2 <= B^2) when B is given, and
     symmetry-breaking (b1 ordered, removes the permutation degeneracy). The same
     fixed spec is imposed on every case study."""
@@ -215,7 +211,7 @@ def fit_penalty_adam(Xtr, ytr, rho, L, full=False):
 
 def fit_adam(Xtr, ytr, wd, full=False):
     """The best-practice baseline: AdamW (Adam + decoupled weight decay),
-    UNCONSTRAINED — no bound exists in this run at all."""
+    UNCONSTRAINED - no bound exists in this run at all."""
     shapes = param_shapes(1, H, 1)
     w0 = random_init(shapes, scale=0.5, seed=SEED)
     out = adam_optimize(w0, shapes, Xtr, ytr, lr=0.02, n_iter=N_ADAM,
@@ -229,11 +225,11 @@ def main():
     shapes = param_shapes(1, H, 1)
     mse = lambda w, X, y: mse_numpy(w, X, y, shapes)
 
-    # ---------- part 1: slide-5 sweep, exact per-L validation values --------
+    # ---------- part 1: validation sweep, exact per-L values --------
     from validation_protocol import three_way_split, fit, L_GRID as LG5
     (Xtr5, ytr5), (Xva5, yva5), (Xte5, yte5) = three_way_split()
     print('=' * 74)
-    print('SLIDE-5 SELECTION, exact numbers (all 12 solves finish FIRST, then argmin)')
+    print('VALIDATION SELECTION, exact numbers (all 12 solves finish FIRST, then argmin)')
     rows5 = []
     for L in LG5:
         w = fit(Xtr5, ytr5, L)
@@ -245,12 +241,12 @@ def main():
     print(f'  --> argmin: L = {best[0]:g} (val {best[1]:.5f}); runner-up '
           f'L = {runner[0]:g} (val {runner[1]:.5f}, diff {runner[1]-best[1]:.5f})')
     print(f'  --> robustness: test at the winner {best[2]:.4f} vs at the '
-          f'runner-up {runner[2]:.4f} — same conclusion either way')
+          f'runner-up {runner[2]:.4f} - same conclusion either way')
 
     # ---------- part 2: pendulum protocol, best vs best --------------------
     (Xtr, ytr), (Xva, yva), (Xte, yte) = three_way_split_pendulum()
     print('=' * 74)
-    print('PENDULUM PROTOCOL — select on VALIDATION, judge once on TEST')
+    print('PENDULUM PROTOCOL - select on VALIDATION, judge once on TEST')
     print('- IPOPT: L_max swept, chosen on validation')
     ip = []
     for L in L_GRID:
@@ -307,7 +303,7 @@ def main():
                              ('plain Adam', t_pl, lip_pl, False)):
         verdict = ('YES, by construction' if hard else
                    ('yes (only observed after training)' if rv <= L_star + 1e-9
-                    else f'NO — {rv / L_star:.1f}x over'))
+                    else f'NO - {rv / L_star:.1f}x over'))
         print(f'{nm:<26}{tv:>10.4f}{rv:>12.2f}   {verdict}')
 
     with open(os.path.join(RESULTS, 'pendulum_protocol.json'), 'w') as f:

@@ -1,11 +1,8 @@
 """
-validation_protocol.py
-────────────────────────
-Leo: "you can check the fit on a validation dataset, and check if adding this
-constraint improves the cost on validation."
+synthetic_protocol.py
 
-This does it RIGOROUSLY with a three-way split, which the rest of the project
-(train/test only) did not:
+Check whether adding a constraint improves the cost on held-out data, using a
+rigorous three-way split:
 
     TRAIN      (40 pts) -- fit the weights w
     VALIDATION (40 pts) -- choose the hyper-parameter L_max
@@ -22,13 +19,15 @@ Two questions answered:
   2. In the FEASIBLE region (penalty rho > lambda*), how does penalty-Adam
      compare with IPOPT under the same constraint?
 
-    python validation_protocol.py
+    python -m experiments.synthetic_protocol
 """
 
 import os
 import numpy as np
 import casadi as ca
 
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.data import make_teacher, _teacher_forward
 from src.model import (param_shapes, n_params, forward_symbolic, mse_numpy,
                        random_init, unflatten_symbolic, unflatten_numpy)
@@ -39,7 +38,7 @@ SEED = 2
 SIGMA = 0.2
 H = 8
 X_RANGE = (-3.0, 3.0)
-FIG_DIR = os.path.join(os.path.dirname(__file__), 'figures')
+FIG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'figures')
 L_GRID = [0.1, 0.15, 0.2, 0.25, 0.3, 0.5, 0.75, 1.0, 1.5, 2.0, 4.0, 10.0]
 
 
@@ -169,7 +168,7 @@ def constraint_ablation():
     for r in rows[1:]:
         print(f"  {r['config']:<26} improves the honest test cost by "
               f"{(base - r['test']) / base * 100:.0f}% vs unconstrained")
-    with open(os.path.join(os.path.dirname(__file__), 'results',
+    with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'results',
                            'protocol_constraint_ablation.json'), 'w') as f:
         json.dump(rows, f, indent=1)
     print('wrote results/protocol_constraint_ablation.json')
@@ -186,8 +185,8 @@ def matched_comparison():
       plain Adam     nothing
       unconstrained  nothing (IPOPT, for reference)
 
-    Then every solution is checked against the SAME targets, so the slide can
-    say who broke which requirement. No value here is hand-picked.
+    Then every solution is checked against the same targets, so the comparison
+    reports who broke which requirement. No value here is hand-picked.
     """
     import json
     from src.analysis import lipschitz_estimate
@@ -240,17 +239,17 @@ def matched_comparison():
     # Without this a non-converged run reads exactly like a solved one.
     rows = []
     for name, w, kind, prov in (
-            (f'IPOPT — all three HARD', w_ip, 'hard',
+            (f'IPOPT - all three HARD', w_ip, 'hard',
              dict(iters=None, converged=True, note='solved to tol 1e-8')),
-            (f'penalty-Adam — same three SOFT (ρ*={rho_star:g})', w_pen, 'soft',
+            (f'penalty-Adam - same three SOFT (ρ*={rho_star:g})', w_pen, 'soft',
              dict(iters=3000, converged=True, note='fixed budget, early stop disabled')),
-            (f'AdamW — L2 only (wd*={wd_star:g})', w_aw, 'l2',
+            (f'AdamW - L2 only (wd*={wd_star:g})', w_aw, 'l2',
              dict(iters=3000, converged=True, note='fixed budget, early stop disabled')),
-            ('plain Adam — nothing', w_pl, 'none',
+            ('plain Adam - nothing', w_pl, 'none',
              dict(iters=3000, converged=True, note='fixed budget, early stop disabled')),
             ('unconstrained IPOPT', w_unc, 'none',
              dict(iters=unc_stats['iters'], converged=unc_stats['success'],
-                  note=f"{unc_stats['status']} — the unconstrained problem has no "
+                  note=f"{unc_stats['status']} - the unconstrained problem has no "
                        f"finite minimiser here; ||W2|| is still growing when the "
                        f"iteration cap is hit"))):
         _, b1, _, _ = unflatten_numpy(w, shapes)
@@ -264,7 +263,7 @@ def matched_comparison():
                          sym_ok=bool(dmin >= -1e-6), w=w.tolist(), **prov))
     out = dict(L_star=L_star, B_star=B_star, rho_star=rho_star, wd_star=wd_star,
                sigma=SIGMA, seed=SEED, rows=rows)
-    with open(os.path.join(os.path.dirname(__file__), 'results',
+    with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'results',
                            'protocol_matched.json'), 'w') as f:
         json.dump(out, f, indent=1)
     print(f"{'method':<44}{'TEST':>9}{'rate':>9}{'||w||':>12}   Lip/ball/sym")
@@ -342,12 +341,12 @@ def make_figure():
     plt.rcParams.update({'font.size': 11, 'figure.dpi': 150, 'savefig.dpi': 150,
                          'lines.linewidth': 2, 'axes.grid': True, 'grid.alpha': 0.3})
 
-    path = os.path.join(os.path.dirname(__file__), 'results', 'protocol_matched.json')
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'results', 'protocol_matched.json')
     if not os.path.exists(path):
         matched_comparison()
     D = json.load(open(path))
     L_star, B_star = D['L_star'], D['B_star']
-    rows = {r['method'].split(' —')[0]: r for r in D['rows']}
+    rows = {r['method'].split(' -')[0]: r for r in D['rows']}
 
     (Xtr, ytr), (Xva, yva), (Xte, yte) = three_way_split()
     shapes = param_shapes(1, H, 1)
@@ -415,7 +414,6 @@ def make_figure():
     # the two panel titles are two lines each; leave room so the suptitle
     # (also two lines) cannot collide with them
     fig.subplots_adjust(bottom=0.10, top=0.80)
-    # (environment note lives on the SLIDE)
     fig.savefig(os.path.join(FIG_DIR, 'fig_validation_protocol.png'))
     plt.close(fig)
     print('wrote figures/fig_validation_protocol.png')

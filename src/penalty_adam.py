@@ -1,6 +1,5 @@
 """
 src/penalty_adam.py
-──────────────────────
 Penalty-method baseline for the Lipschitz constraint.
 
 Instead of an NLP solver enforcing ||W1||_F^2 ||W2||_F^2 <= L_max^2
@@ -141,12 +140,8 @@ def solve_penalty_adam(exp, X_train, y_train, X_test, y_test):
     shapes = param_shapes(exp['d_in'], exp['H'], exp['d_out'])
     w0 = random_init(shapes, scale=exp.get('init_scale', 0.5), seed=exp.get('seed', 0))
 
-    # tol=0.0 disables the early stop. Stopping early is implicit regularization
-    # and it also corrupts the rho sweep: two of the eight runs used to halt at
-    # ~1200 iterations instead of 3000, which moved their achieved sensitivity
-    # onto the wrong side of the bound. Every gradient baseline in this project
-    # runs the same fixed budget. (Fixed 2026-07-19; the earlier early-stopping
-    # audit checked adam_optimize call sites and missed this one.)
+    # tol=0.0 disables the early stop so the run uses its full fixed budget;
+    # stopping early acts as implicit regularization and would bias the rho sweep.
     opts = dict(exp['adam_opts'])
     opts.setdefault('tol', 0.0)
     out = penalty_adam_optimize(w0, shapes, X_train, y_train,

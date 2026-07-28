@@ -29,7 +29,7 @@ PARAMETER REFERENCE:
 
 import numpy as np
 
-# ── Data generation (synthetic teacher-student regression) ───────────────────
+#  Data generation (synthetic teacher-student regression)
 DATA = dict(
     d_in=1, d_out=1,
     H_teacher=6,            # hidden units of the fixed random "ground truth" network
@@ -38,7 +38,7 @@ DATA = dict(
     x_range=(-3.0, 3.0),
 )
 
-# ── Default network / constraint settings (overridden per-experiment) ────────
+#  Default network / constraint settings (overridden per-experiment)
 DEFAULTS = dict(
     H=8,
     L_max=4.0,
@@ -54,7 +54,7 @@ DEFAULTS = dict(
     init_scale=0.5,
 )
 
-# ── Solver settings ────────────────────────────────────────────────────────
+#  Solver settings
 IPOPT_OPTS = dict(
     ipopt=dict(max_iter=2000, tol=1e-8, print_level=0),
     print_time=False,
@@ -76,10 +76,8 @@ SQP_OPTS = dict(
 
 ADAM_OPTS = dict(
     lr=0.02, n_iter=3000, beta1=0.9, beta2=0.999,
-    # tol=0.0 disables adam_optimize's loss-plateau early stop. Stopping early is
-    # implicit regularization AND it breaks the equal-budget comparison, so every
-    # first-order run in this project completes its full 3,000 iterations.
-    # (Set 2026-07-19: exp_complexity_adam_H16/H32 had been halting at 2314/2007.)
+    # tol=0.0 disables the early stop so every first-order run completes its full
+    # 3000 iterations, which keeps the equal-budget comparison fair.
     tol=0.0,
 )
 
@@ -96,11 +94,11 @@ def _make(name, label, group, **overrides):
 
 
 # =============================================================================
-#  EXPERIMENTS — edit this list freely
+#  EXPERIMENTS - edit this list freely
 # =============================================================================
 EXPERIMENTS = []
 
-# ── GROUP 1: method comparison ────────────────────────────────────────────
+#  GROUP 1: method comparison
 # Same network, same data, same constraints (where applicable) -- only the
 # optimization algorithm changes. Answers: how do IPOPT / SQP / Adam compare
 # in solution quality and computational cost on the identical problem?
@@ -109,11 +107,11 @@ _method_common = dict(
     L_max=4.0, B_max=6.0, noise_std=0.05,
 )
 EXPERIMENTS += [
-    _make('exp_method_ipopt', 'Method comparison — IPOPT (constrained)',
+    _make('exp_method_ipopt', 'Method comparison - IPOPT (constrained)',
           'method_comparison', method='ipopt', **_method_common),
-    _make('exp_method_sqp', 'Method comparison — SQP (constrained)',
+    _make('exp_method_sqp', 'Method comparison - SQP (constrained)',
           'method_comparison', method='sqp', **_method_common),
-    _make('exp_method_adam', 'Method comparison — Adam (unconstrained)',
+    _make('exp_method_adam', 'Method comparison - Adam (unconstrained)',
           'method_comparison', method='adam', H=8, noise_std=0.05),
 ]
 
@@ -126,61 +124,60 @@ EXPERIMENTS += [
 # that tightening helps or hurts MSE. (norm-ball + symmetry breaking are kept
 # on to match the other constrained method_comparison runs.)
 EXPERIMENTS.append(_make(
-    'exp_method_spectral', 'Method comparison — IPOPT (exact spectral-norm bound)',
+    'exp_method_spectral', 'Method comparison - IPOPT (exact spectral-norm bound)',
     'method_comparison', method='ipopt', H=8,
     use_lipschitz=False, use_spectral_norm=True, use_norm_ball=True,
     use_symmetry_break=True, s1_max=2.0, s2_max=2.0, B_max=6.0, noise_std=0.05,
 ))
 
-# ── GROUP 2: Lipschitz bound sweep ────────────────────────────────────────
+#  GROUP 2: Lipschitz bound sweep
 # Only the Lipschitz constraint is active (isolated from the other two) so
 # its effect on the train/test trade-off is visible on its own. Answers:
 # how does tightening L_max trade off training fit against generalization?
 for L in [0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0]:
     tag = str(L).replace('.', 'p')
     EXPERIMENTS.append(_make(
-        f'exp_lipschitz_L{tag}', f'Lipschitz sweep — L_max={L}',
+        f'exp_lipschitz_L{tag}', f'Lipschitz sweep - L_max={L}',
         'lipschitz_sweep', method='ipopt', H=8, L_max=L,
         use_lipschitz=True, use_norm_ball=False, use_symmetry_break=False,
         noise_std=0.1,
     ))
 
-# ── GROUP 3: NLP size scaling ─────────────────────────────────────────────
+#  GROUP 3: NLP size scaling
 # Same constraints, growing network -> growing NLP. Answers: how does
 # IPOPT's solve time and iteration count scale with problem dimension?
-for H in [4, 8, 16, 32, 64]:
+for H in [4, 8, 16, 32, 64, 96, 128, 192, 256]:
     EXPERIMENTS.append(_make(
-        f'exp_size_H{H}', f'Size scaling — H={H} hidden units',
+        f'exp_size_H{H}', f'Size scaling - H={H} hidden units',
         'size_scaling', method='ipopt', H=H,
         use_lipschitz=True, use_norm_ball=True, use_symmetry_break=True,
         L_max=4.0, B_max=6.0, noise_std=0.05,
     ))
 
-# ── GROUP 4: noise robustness ─────────────────────────────────────────────
+#  GROUP 4: noise robustness
 # Constrained (IPOPT, hard Lipschitz + norm-ball) vs unconstrained (Adam),
 # repeated at increasing label noise. Answers: do the hard constraints
 # improve generalization under noisy data compared to unconstrained descent?
-# 0.2 included so the sweep covers the headline protocol's noise level too
-# (added 2026-07-18; before that the sweep was 0.0/0.1/0.3 only).
+# 0.2 is included so the sweep also covers the noise level used elsewhere.
 for noise in [0.0, 0.1, 0.2, 0.3]:
     tag = str(noise).replace('.', 'p')
     EXPERIMENTS.append(_make(
-        f'exp_noise_{tag}_ipopt', f'Noise robustness — sigma={noise} (IPOPT, constrained)',
+        f'exp_noise_{tag}_ipopt', f'Noise robustness - sigma={noise} (IPOPT, constrained)',
         'noise_robustness', method='ipopt', H=8, noise_std=noise,
         use_lipschitz=True, use_norm_ball=True, use_symmetry_break=True,
         L_max=4.0, B_max=6.0,
     ))
     EXPERIMENTS.append(_make(
-        f'exp_noise_{tag}_adam', f'Noise robustness — sigma={noise} (Adam, unconstrained)',
+        f'exp_noise_{tag}_adam', f'Noise robustness - sigma={noise} (Adam, unconstrained)',
         'noise_robustness', method='adam', H=8, noise_std=noise,
     ))
 
 # =============================================================================
-#  NEW GROUPS — deeper optimization-side studies (added on top of the
+#  NEW GROUPS - deeper optimization-side studies (added on top of the
 #  original four groups above; nothing above this line was changed)
 # =============================================================================
 
-# ── GROUP 5: multi-start / local minima study ─────────────────────────────
+#  GROUP 5: multi-start / local minima study
 # The Lipschitz-constrained NLP is nonconvex (the constraint is bilinear,
 # and the tanh network is already nonconvex on its own). IPOPT can converge
 # to different local minima depending on the initial guess. All 20 runs use
@@ -195,13 +192,13 @@ for noise in [0.0, 0.1, 0.2, 0.3]:
 _MULTISTART_DATA_SEED = 999
 for i in range(20):
     EXPERIMENTS.append(_make(
-        f'exp_multistart_seed{i}', f'Multi-start — init seed {i}',
+        f'exp_multistart_seed{i}', f'Multi-start - init seed {i}',
         'multistart', method='ipopt', H=8, L_max=4.0,
         use_lipschitz=True, use_norm_ball=False, use_symmetry_break=False,
         noise_std=0.05, seed=i, data_seed=_MULTISTART_DATA_SEED, init_scale=4.0,
     ))
 
-# ── GROUP 6: KKT / dual-variable analysis ─────────────────────────────────
+#  GROUP 6: KKT / dual-variable analysis
 # Same Lipschitz sweep as 'lipschitz_sweep' (same H, same noise_std, same L
 # range) but additionally records IPOPT's Lagrange multiplier (dual
 # variable / "shadow price") for the Lipschitz constraint at each L_max.
@@ -210,13 +207,13 @@ for i in range(20):
 for L in [0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0]:
     tag = str(L).replace('.', 'p')
     EXPERIMENTS.append(_make(
-        f'exp_kkt_L{tag}', f'KKT analysis — L_max={L}',
+        f'exp_kkt_L{tag}', f'KKT analysis - L_max={L}',
         'kkt_analysis', method='ipopt', H=8, L_max=L,
         use_lipschitz=True, use_norm_ball=False, use_symmetry_break=False,
         noise_std=0.1,
     ))
 
-# ── GROUP 7: penalty method vs. hard constraint ───────────────────────────
+#  GROUP 7: penalty method vs. hard constraint
 # The "everyone already does this" way to handle a constraint in ML is a
 # penalty term in the loss, minimize f(w) + rho*violation(w), with plain
 # Adam ('penalty_adam' method, see src/penalty_adam.py). Compared against
@@ -244,17 +241,17 @@ for L in [0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0]:
 _PENALTY_COMMON = dict(H=8, L_max=1.0, noise_std=0.05,
                         use_lipschitz=True, use_norm_ball=False, use_symmetry_break=False)
 EXPERIMENTS.append(_make(
-    'exp_penalty_ipopt_ref', 'Penalty comparison — IPOPT (hard constraint, reference)',
+    'exp_penalty_ipopt_ref', 'Penalty comparison - IPOPT (hard constraint, reference)',
     'penalty_vs_hard', method='ipopt', **_PENALTY_COMMON,
 ))
 for rho in [0.0, 1e-5, 3e-5, 1e-4, 3e-4, 1e-3, 1e-2, 1.0]:
     tag = str(rho).replace('.', 'p').replace('-', 'm')
     EXPERIMENTS.append(_make(
-        f'exp_penalty_rho{tag}', f'Penalty comparison — Adam, rho={rho:g}',
+        f'exp_penalty_rho{tag}', f'Penalty comparison - Adam, rho={rho:g}',
         'penalty_vs_hard', method='penalty_adam', rho=rho, **_PENALTY_COMMON,
     ))
 
-# ── GROUP 8: warm-start study ─────────────────────────────────────────────
+#  GROUP 8: warm-start study
 # A single driver entry (handled specially in main.py, see src/warm_start.py):
 # it runs the SAME Lipschitz sweep twice over a tightening sequence of L_max
 # (32 -> 0.5), once cold-starting every solve from the same random w0 and once
@@ -262,14 +259,14 @@ for rho in [0.0, 1e-5, 3e-5, 1e-4, 3e-4, 1e-3, 1e-2, 1.0]:
 # much does warm starting cut IPOPT's iteration count when a constraint is
 # tightened incrementally? (The classic continuation / homotopy trick.)
 EXPERIMENTS.append(_make(
-    'exp_warm_start', 'Warm-start study — incremental Lipschitz tightening',
+    'exp_warm_start', 'Warm-start study - incremental Lipschitz tightening',
     'warm_start', method='ipopt', H=8,
     use_lipschitz=True, use_norm_ball=False, use_symmetry_break=False,
     noise_std=0.1,
     warm_start_L_values=[32.0, 16.0, 8.0, 4.0, 2.0, 1.0, 0.5],  # tightening order
 ))
 
-# ── GROUP 9: constraint geometry / interaction ────────────────────────────
+#  GROUP 9: constraint geometry / interaction
 # Lipschitz bound fixed (L_max=4.0), norm-ball radius B_max swept from tight
 # (0.5) to loose (20.0), BOTH constraints active. Each solve records both
 # dual variables (which constraint binds) plus train/test MSE and the worst
@@ -278,13 +275,13 @@ EXPERIMENTS.append(_make(
 for B in [0.5, 1.0, 2.0, 4.0, 8.0, 20.0]:
     tag = str(B).replace('.', 'p')
     EXPERIMENTS.append(_make(
-        f'exp_geom_B{tag}', f'Constraint geometry — B_max={B}',
+        f'exp_geom_B{tag}', f'Constraint geometry - B_max={B}',
         'constraint_geometry', method='ipopt', H=8, L_max=4.0, B_max=B,
         use_lipschitz=True, use_norm_ball=True, use_symmetry_break=False,
         noise_std=0.1,
     ))
 
-# ── GROUP 10: convergence rate (KKT residual vs. iteration) ───────────────
+#  GROUP 10: convergence rate (KKT residual vs. iteration)
 # IPOPT is a Newton-type method: near the solution it uses exact second-order
 # information, so its KKT residual drops superlinearly in the final
 # iterations. Adam is first-order: its gradient norm decays slowly and
@@ -307,30 +304,19 @@ for B in [0.5, 1.0, 2.0, 4.0, 8.0, 20.0]:
 # enough of the degeneracy that IPOPT reaches it in ~150 iterations.
 _CONV_COMMON = dict(H=8, noise_std=0.05, seed=0)
 EXPERIMENTS += [
-    _make('exp_conv_ipopt_unc', 'Convergence rate — IPOPT (unconstrained)',
+    _make('exp_conv_ipopt_unc', 'Convergence rate - IPOPT (unconstrained)',
           'convergence_rate', method='ipopt',
           ipopt_opts=dict(ipopt=dict(max_iter=2000, tol=1e-6, print_level=0),
                           print_time=False),
           **_CONV_COMMON),
-    _make('exp_conv_ipopt_con', 'Convergence rate — IPOPT (Lipschitz-constrained)',
+    _make('exp_conv_ipopt_con', 'Convergence rate - IPOPT (Lipschitz-constrained)',
           'convergence_rate', method='ipopt', use_lipschitz=True, L_max=1.0,
           **_CONV_COMMON),
-    _make('exp_conv_adam', 'Convergence rate — Adam (unconstrained)',
+    _make('exp_conv_adam', 'Convergence rate - Adam (unconstrained)',
           'convergence_rate', method='adam', **_CONV_COMMON),
-    # Gauss-Newton / Levenberg-Marquardt (course notes §6.6-6.7), implemented
-    # from scratch in src/gauss_newton.py. The objective IS a nonlinear
-    # least-squares problem, so the course's dedicated fitting method belongs
-    # in this comparison: it uses the exact residual Jacobian (AD) but drops
-    # the second-order residual term -- structurally between Adam
-    # (first-order) and IPOPT's exact Newton. LM damping is required because
-    # JtJ is singular here (overparameterization + permutation symmetry).
-    _make('exp_conv_gn', 'Convergence rate — Gauss-Newton/LM (unconstrained)',
-          'convergence_rate', method='gauss_newton',
-          gn_opts=dict(max_iter=200, lam0=1e-3, tol=1e-8),
-          **_CONV_COMMON),
 ]
 
-# ── GROUP 11: exact vs. limited-memory (L-BFGS) Hessian in IPOPT ──────────
+#  GROUP 11: exact vs. limited-memory (L-BFGS) Hessian in IPOPT
 # Same constrained problem as 'size_scaling' at every H, solved twice: once
 # with the exact Hessian of the Lagrangian (CasADi automatic differentiation,
 # IPOPT's default here) and once with IPOPT's L-BFGS approximation. Exact
@@ -356,35 +342,25 @@ for H in [4, 8, 16, 32, 64]:
     for mode, tag, opts in [('exact', 'exact', _HESS_IPOPT_EXACT),
                             ('limited-memory', 'lbfgs', _HESS_IPOPT_LBFGS)]:
         EXPERIMENTS.append(_make(
-            f'exp_hess_{tag}_H{H}', f'Hessian comparison — {mode}, H={H}',
+            f'exp_hess_{tag}_H{H}', f'Hessian comparison - {mode}, H={H}',
             'hessian_comparison', method='ipopt', H=H,
             use_lipschitz=True, use_norm_ball=True, use_symmetry_break=True,
             L_max=4.0, B_max=6.0, noise_std=0.05,
             ipopt_opts=opts, hessian_mode=mode,
         ))
 
-# ── GROUP 12: complexity race — solvers vs baselines as the network grows ──
-# Group 3 measures how IPOPT alone scales; this group adds the baselines at
-# the identical sizes and data (noise 0.05, seed 0, H = 4..64) so the scaling
-# claim becomes a COMPARISON, not a solo measurement: exact constrained
-# Newton (from Group 3) vs unconstrained Adam vs self-implemented
-# Gauss-Newton/LM. Answers: as the NLP grows, who pays what — and what do
-# you get for it? (IPOPT: O(n^3) factorizations but certified constraints
-# and 1e-8 optimality; Adam: flat cheap iterations but stalls and knows no
-# constraints; GN/LM: Jacobian-cheap and fast to medium accuracy, then the
-# residual-limited floor.)
-for H in [4, 8, 16, 32, 64]:
+#  GROUP 12: complexity race - IPOPT vs Adam as the network grows
+# Adds the unconstrained Adam baseline at the same sizes and data as the
+# size_scaling group so the scaling claim becomes a comparison: exact
+# constrained Newton (O(n^3) factorizations, certified constraints) vs
+# unconstrained Adam (cheap, flat iterations, no constraints).
+for H in [4, 8, 16, 32, 64, 96, 128, 192, 256]:
     EXPERIMENTS.append(_make(
-        f'exp_complexity_adam_H{H}', f'Complexity race — Adam, H={H}',
+        f'exp_complexity_adam_H{H}', f'Complexity race - Adam, H={H}',
         'complexity', method='adam', H=H, noise_std=0.05,
     ))
-    EXPERIMENTS.append(_make(
-        f'exp_complexity_gn_H{H}', f'Complexity race — Gauss-Newton/LM, H={H}',
-        'complexity', method='gauss_newton', H=H, noise_std=0.05,
-        gn_opts=dict(max_iter=200, lam0=1e-3, tol=1e-8),
-    ))
 
-# ── GROUP 13: physical task — pendulum system identification ───────────────
+#  GROUP 13: physical task - pendulum system identification
 # Answers the "what is it even learning?" question with a physically
 # meaningful task: fit the free response theta(t) [rad] of a damped pendulum
 # (omega = 2 rad/s, zeta = 0.15) from noisy angle measurements over t in
@@ -400,17 +376,17 @@ for H in [4, 8, 16, 32, 64]:
 _PEND_COMMON = dict(task='pendulum', H=8, noise_std=0.05, seed=0,
                     x_range=(0.0, 6.0))
 EXPERIMENTS += [
-    _make('exp_pendulum_ipopt', 'Pendulum system ID — IPOPT, L_max=4 (certified)',
+    _make('exp_pendulum_ipopt', 'Pendulum system ID - IPOPT, L_max=4 (certified)',
           'pendulum', method='ipopt', use_lipschitz=True, L_max=4.0,
           use_symmetry_break=True, **_PEND_COMMON),
-    _make('exp_pendulum_tight', 'Pendulum system ID — IPOPT, L_max=1 (over-tight)',
+    _make('exp_pendulum_tight', 'Pendulum system ID - IPOPT, L_max=1 (over-tight)',
           'pendulum', method='ipopt', use_lipschitz=True, L_max=1.0,
           use_symmetry_break=True, **_PEND_COMMON),
-    _make('exp_pendulum_adam', 'Pendulum system ID — Adam (unconstrained)',
+    _make('exp_pendulum_adam', 'Pendulum system ID - Adam (unconstrained)',
           'pendulum', method='adam', **_PEND_COMMON),
 ]
 
-# ── GROUP 14: pendulum constraint-selection sweep ──────────────────────────
+#  GROUP 14: pendulum constraint-selection sweep
 # Directly answers "isn't L_max just a guessed number?" -- NO: on the physical
 # pendulum task, sweeping L_max reveals a clean under-fit -> optimum -> over-fit
 # curve, and the best test error lands just above the pendulum's TRUE maximum
@@ -420,7 +396,7 @@ EXPERIMENTS += [
 for L in [0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0, 12.0]:
     tag = str(L).replace('.', 'p')
     EXPERIMENTS.append(_make(
-        f'exp_pendsweep_L{tag}', f'Pendulum L-sweep — L_max={L} rad/s',
+        f'exp_pendsweep_L{tag}', f'Pendulum L-sweep - L_max={L} rad/s',
         'pendulum_sweep', method='ipopt', task='pendulum', H=8,
         use_lipschitz=True, L_max=L, use_symmetry_break=True,
         noise_std=0.05, seed=0, x_range=(0.0, 6.0),

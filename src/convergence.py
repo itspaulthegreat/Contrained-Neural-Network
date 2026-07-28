@@ -1,6 +1,5 @@
 """
 src/convergence.py
-────────────────────
 Convergence-rate study: KKT residual vs. iteration.
 
 IPOPT is a Newton-type method -- close to the solution it takes steps

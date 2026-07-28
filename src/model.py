@@ -1,6 +1,5 @@
 """
 src/model.py
-─────────────
 Student network architecture: one hidden layer, tanh activation.
 
     yhat(x; w) = W2 @ tanh(W1 @ x + b1) + b2
