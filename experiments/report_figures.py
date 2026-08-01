@@ -174,7 +174,8 @@ def fig_convergence():
                 label=f"IPOPT, KKT residual ({len(kkt)} it)")
     ax.semilogy(range(1, len(grad) + 1), grad, color="tab:green", lw=2,
                 label=f"Adam, gradient norm ({len(grad)} it)")
-    ax.set_xlabel("iteration"); ax.set_ylabel("best optimality residual [-]")
+    ax.set_xlabel("iteration")
+    ax.set_ylabel("running minimum of solver-specific diagnostic [-]", fontsize=9)
     ax.legend(fontsize=8, loc="upper right")
     fig.tight_layout()
     out = os.path.join(FIGURES, "fig_convergence.png")
