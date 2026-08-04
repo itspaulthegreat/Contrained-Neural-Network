@@ -17,7 +17,6 @@ venv/
 env/
 
 # Editor / tool state
-.claude/
 .vscode/
 .idea/
 
