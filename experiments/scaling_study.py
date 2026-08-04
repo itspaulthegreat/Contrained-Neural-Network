@@ -1,19 +1,6 @@
-"""
-Width scaling, matched: what does the interior-point solve cost as the network
-grows, compared with training the SAME requirements as a soft penalty?
-
-At each hidden width H, on the synthetic task, both methods solve the same
-Lipschitz + norm-ball problem:
-
-  - IPOPT (hard)   : the constrained NLP, solved to KKT tolerance
-  - penalty-Adam   : Adam on MSE + rho*(Lipschitz + ball hinges), to a loss plateau
-
-Recorded per method over the full size range: solve time, iterations, test MSE,
-achieved sensitivity and feasibility. (Unconstrained baselines belong to the
-sensitivity study, not this matched cost comparison.)
-
-    python -m experiments.scaling_study   ->  results/scaling_study.json
-"""
+"""Matched width scaling: IPOPT (hard) vs penalty-Adam (soft) on the same
+Lipschitz + norm-ball problem, over a range of hidden widths H. Records solve
+time, iterations, test MSE, sensitivity and feasibility -> scaling_study.json."""
 import json
 import os
 import sys

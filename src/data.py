@@ -1,13 +1,6 @@
-"""
-src/data.py
-Synthetic teacher-student regression dataset.
-
-A fixed random "teacher" network generates the ground-truth function;
-the student network (the one whose weights we optimize) must recover
-it from noisy samples. This gives a known, controllable regression
-problem so the optimization behavior can be studied in isolation from
-data-quality issues.
-"""
+"""Synthetic teacher-student dataset and simulated damped-pendulum data.
+A fixed random teacher generates the ground truth; the student recovers it
+from noisy samples."""
 
 import numpy as np
 
@@ -59,10 +52,8 @@ def pendulum_true(t, omega=2.0, zeta=0.15, theta0=1.0):
 
 def generate_pendulum_dataset(n_train=60, n_test=40, noise_std=0.05, seed=0,
                                t_range=(0.0, 6.0), omega=2.0, zeta=0.15):
-    """Physically meaningful counterpart to the teacher-student data: noisy
-    angle measurements theta(t) [rad] of a damped pendulum over t [s]. Same
-    shapes/(d_in, N) layout as generate_dataset so every solver runs on it
-    unchanged. The regression task is classical 1-D system identification."""
+    """Noisy angle measurements theta(t) [rad] of a damped pendulum over t [s],
+    same (d_in, N) layout as generate_dataset."""
     rng = np.random.default_rng(seed)
 
     def sample(n):

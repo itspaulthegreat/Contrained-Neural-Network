@@ -1,14 +1,6 @@
-"""
-Convergence rate: KKT residual versus iteration.
-
-IPOPT is a Newton-type method, so on the constrained NLP its KKT residual drops
-superlinearly to solver tolerance in a few hundred iterations. Adam is first-order:
-its gradient norm decays slowly and stalls orders of magnitude higher. Both measure
-distance to a stationary point (for IPOPT the full KKT residual, for unconstrained
-Adam the gradient norm), so the plot compares convergence rate, not just final error.
-
-    python -m experiments.convergence   ->  results/convergence.json
-"""
+"""Convergence diagnostic: IPOPT KKT residual and Adam gradient norm vs
+iteration on the constrained problem -> results/convergence.json. The two are
+solver-specific quantities, compared only qualitatively (see the report)."""
 import json
 import os
 import sys

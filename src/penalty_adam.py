@@ -1,21 +1,7 @@
-"""
-src/penalty_adam.py
-Penalty-method baseline for the Lipschitz constraint.
-
-Instead of an NLP solver enforcing ||W1||_F^2 ||W2||_F^2 <= L_max^2
-exactly, fold it into the objective as a hinge penalty and minimize
-with plain Adam:
-
-    minimize_w   f(w) + rho * max(0, ||W1||_F^2 ||W2||_F^2 - L_max^2)
-
-This is what the constraint looks like if you train the network the
-"normal" ML way -- no NLP solver, just an extra term in the loss.
-Comparing this against IPOPT's hard-constraint solve (zero violation by
-construction, see src/kkt.py / src/nlp_builder.py) is the classic
-penalty-method-vs-exact-constraint question: a penalty only
-approximately enforces the constraint, and how well it does depends
-entirely on rho.
-"""
+"""Penalty-method baseline: fold the Lipschitz constraint into the objective
+as a hinge and minimize with Adam,
+    min_w  f(w) + rho * max(0, ||W1||^2 ||W2||^2 - L_max^2).
+A penalty only approximately enforces the constraint, depending on rho."""
 
 import time
 import numpy as np
@@ -83,16 +69,10 @@ def multi_penalty_adam_optimize(w0, shapes, X_train, y_train, rho,
                                  L_max=None, B_max=None, symmetry=False,
                                  lr=0.02, n_iter=3000, beta1=0.9, beta2=0.999,
                                  eps=1e-8, tol=0.0, record_weights=False):
-    """The SOFT analogue of the FULL constraint set, so 'penalty vs hard
-    constraint' can be compared like with like:
-
-        min  MSE(w) + rho * [ max(0, ||W1||^2||W2||^2 - L^2)          (Lipschitz)
-                            + max(0, ||w||^2 - B^2)                   (norm ball)
-                            + sum_j max(0, b1[j] - b1[j+1]) ]         (symmetry)
-
-    One shared rho (selected on validation like every other hyper-parameter).
-    Using three separate weights would be a 3-D search -- itself an argument
-    for hard constraints, and noted as such in the write-up.
+    """Soft analogue of the full constraint set, one shared rho:
+        min  MSE + rho * [ max(0, ||W1||^2||W2||^2 - L^2)
+                         + max(0, ||w||^2 - B^2)
+                         + sum_j max(0, b1[j] - b1[j+1]) ].
     """
     n = n_params(shapes)
     w = ca.MX.sym('w', n)
@@ -140,8 +120,7 @@ def solve_penalty_adam(exp, X_train, y_train, X_test, y_test):
     shapes = param_shapes(exp['d_in'], exp['H'], exp['d_out'])
     w0 = random_init(shapes, scale=exp.get('init_scale', 0.5), seed=exp.get('seed', 0))
 
-    # tol=0.0 disables the early stop so the run uses its full fixed budget;
-    # stopping early acts as implicit regularization and would bias the rho sweep.
+    # tol=0.0 disables early stop: use the full fixed budget
     opts = dict(exp['adam_opts'])
     opts.setdefault('tol', 0.0)
     out = penalty_adam_optimize(w0, shapes, X_train, y_train,

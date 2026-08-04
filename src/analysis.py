@@ -1,10 +1,5 @@
-"""
-src/analysis.py
-Post-hoc metrics computed from a solved weight vector: the achieved
-Lipschitz estimate and the worst constraint violation. Used to sanity
-check that IPOPT/SQP solutions actually respect the constraints they
-were given (violation should be ~1e-6 or smaller).
-"""
+"""Post-hoc metrics from a solved weight vector: the Lipschitz certificate,
+the worst constraint violation, and the objective Hessian condition number."""
 
 import numpy as np
 import casadi as ca

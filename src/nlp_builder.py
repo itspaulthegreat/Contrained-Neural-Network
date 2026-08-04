@@ -1,16 +1,6 @@
-"""
-src/nlp_builder.py
-Assembles the constrained NLP that is the actual subject of this project:
-
-    decision vars : w        (flattened network weights)
-    objective     : f(w)     mean-squared training error
-    constraints   : g(w)     Lipschitz bound, weight norm-ball,
-                              symmetry-breaking -- each independently
-                              switchable via the experiment config
-
-Everything else (the network architecture, the synthetic data) exists
-only to give this NLP something nontrivial to optimize.
-"""
+"""Assembles the constrained NLP: decision vars w (flattened weights),
+objective f(w) = MSE, constraints g(w) (Lipschitz, norm-ball, spectral,
+symmetry), each switchable via the experiment config."""
 
 import numpy as np
 import casadi as ca
