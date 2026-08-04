@@ -121,27 +121,28 @@ variables of the NLP.}
 
 \subsection{The desired constrained problem}
 The modelling goal is to fit the data while guaranteeing that the network does not
-react too fast to input changes. Writing this requirement directly, the ideal
-training problem is
-\begin{mini}
-{\wvec}{f(\wvec)}{\label{eq:idealnlp}}{}
-\addConstraint{\displaystyle\sup_{x\neq x'}
-\frac{|\yhat(x;\wvec)-\yhat(x';\wvec)|}{|x-x'|}}{\le\Lmax}
-\addConstraint{\norm{\wvec}_2^2}{\le\Bmax^2.}
-\end{mini}
-Here $f(\wvec)$ is the training error \eqref{eq:mse}; the first constraint is the true
-input Lipschitz requirement with bound $\Lmax$; and the second is the parameter-norm
-ball of radius $\Bmax$. The supremum is not directly convenient for a numerical NLP
-solver, so it is replaced next by a conservative, computable sufficient condition.
-
-\subsection{Derivation of the tractable certificate}
-For fixed weights $\wvec$, denote the true input Lipschitz constant of the network by
-$\Lip(\wvec)$. Because the network in \eqref{eq:net} is differentiable,
+react too fast to input changes. The relevant quantity is the true input Lipschitz
+constant of the model, written with its explicit dependence on the weights $\wvec$,
 \begin{equation}
-\Lip(\wvec)=\sup_x\left|\frac{\mathrm d\yhat(x;\wvec)}{\mathrm dx}\right|.
+\Lip_x\!\bigl(\yhat(\cdot\,;\wvec)\bigr)
+=\sup_{x\neq x'}\frac{|\yhat(x;\wvec)-\yhat(x';\wvec)|}{|x-x'|}.
 \label{eq:truelip}
 \end{equation}
-Differentiating,
+The ideal training problem is then
+\begin{mini}
+{\wvec}{f(\wvec)}{\label{eq:idealnlp}}{}
+\addConstraint{\Lip_x\!\bigl(\yhat(\cdot\,;\wvec)\bigr)}{\le\Lmax}
+\addConstraint{\norm{\wvec}_2^2}{\le\Bmax^2,}
+\end{mini}
+where $f(\wvec)$ is the training error \eqref{eq:mse}, the first constraint is the
+desired Lipschitz requirement with bound $\Lmax$, and the second is an explicit
+parameter-norm ball of radius $\Bmax$. The supremum in \eqref{eq:truelip} is not
+directly convenient for a numerical NLP solver, so it is replaced next by a
+conservative, computable sufficient condition.
+
+\subsection{Derivation of the tractable certificate}
+Because \eqref{eq:net} is differentiable, its Lipschitz constant is the supremum of
+$|\mathrm d\yhat/\mathrm dx|$. Differentiating,
 \begin{equation}
 \frac{\mathrm d\yhat}{\mathrm dx}
 =\wvec_2^\top\,\mathrm{diag}\!\bigl(1-\tanh^2(\wvec_1 x+b_1)\bigr)\,\wvec_1 .
@@ -150,13 +151,13 @@ Differentiating,
 Each diagonal entry lies in $(0,1]$, so the diagonal matrix has operator norm at
 most one, and Cauchy--Schwarz gives
 \begin{equation}
-\Lip(\wvec)\le\norm{\wvec_1}_2\,\norm{\wvec_2}_2=:\Uc .
+\Lip_x\!\bigl(\yhat(\cdot\,;\wvec)\bigr)\le\norm{\wvec_1}_2\,\norm{\wvec_2}_2=:\Uc .
 \label{eq:cert}
 \end{equation}
 The certificate $\Uc$ is computable and is an \emph{upper bound}: it is not equal to
 the true Lipschitz constant in general, and $\Uc\le\Lmax$ is a conservative
 sufficient condition for the true requirement
-$\Lip(\wvec)\le\Lmax$. I impose it in the squared form
+$\Lip_x(\yhat(\cdot\,;\wvec))\le\Lmax$. I impose it in the squared form
 \begin{equation}
 \norm{\wvec_1}_2^2\,\norm{\wvec_2}_2^2\le\Lmax^2,
 \label{eq:c1}
@@ -401,7 +402,7 @@ the induced Euclidean norm, which is the Lipschitz constant of the affine map
 $z\mapsto Wz+b$. Since $\tanh$ is $1$-Lipschitz and Lipschitz constants multiply under
 composition, the natural multilayer bound is the product of the layer spectral norms,
 \begin{equation}
-\Lip(\wvec)
+\Lip_x\!\bigl(\yhat(\cdot\,;\wvec)\bigr)
 \le\prod_{l=1}^{D+1}\norm{W_l}_2\le\prod_{l=1}^{D+1}\norm{W_l}_F=:U_F(\wvec).
 \label{eq:deepcert}
 \end{equation}

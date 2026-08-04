@@ -1,19 +1,7 @@
-# -*- coding: utf-8 -*-
-"""Pendulum, fixed spec L=4 / B=6 (Lipschitz + norm-ball). Four methods, the
-gradient ones run to CONVERGENCE (loss plateau, generous cap):
-
-  - IPOPT (hard, Lip+ball)   : the constrained solve
-  - penalty-Adam (soft)      : Adam on MSE + rho*(Lipschitz + ball hinges); rho
-                               swept, the best-compliant one reported with count
-  - AdamW (weight decay)     : Adam + wd swept, count reported
-  - plain Adam               : Adam, no constraint
-
-Reports each method's rate / ||w|| / test MSE, iterations, wall time, and for
-the two Adam-with-a-knob methods how many swept settings complied.
-
-    python -m experiments.pendulum_convergence
-        -> results/pendulum_convergence.json
-        -> results/pendulum_traj.npz
+"""Pendulum at fixed spec L=4, B=6. Four methods (IPOPT hard, penalty-Adam,
+AdamW, plain Adam), gradient ones run to a loss plateau. Reports rate / ||w|| /
+test MSE / iterations / time, and compliance counts for the swept baselines.
+    -> results/pendulum_convergence.json, results/pendulum_traj.npz
 """
 import json
 import os
@@ -58,7 +46,7 @@ def checks(w):
                 all_ok=bool(rate <= L + TOLC and wn <= B + TOLC))
 
 
-# ---- IPOPT hard (Lipschitz + norm-ball), record iterates ----
+# ---- IPOPT hard (Lipschitz + norm-ball) ----
 w = ca.MX.sym("w", n_params(shapes))
 f = ca.sumsqr(forward_symbolic(w, Xtr, shapes) - ytr) / Xtr.shape[1]
 W1, b1, W2, b2 = unflatten_symbolic(w, shapes)
@@ -75,7 +63,7 @@ w_ip = np.asarray(r["x"]).flatten(); it_ip = int(sh.stats()["iter_count"])
 traj_ip = np.array(rec.iterates) if rec.iterates else np.array([w_ip])
 
 
-# ---- penalty-Adam: sweep rho to convergence, count, pick best-compliant ----
+# ---- penalty-Adam: sweep rho to convergence ----
 n_pen = 0; best = None
 print("penalty-Adam sweep to convergence:")
 for rho in RHO_GRID:
@@ -91,7 +79,7 @@ out = multi_penalty_adam_optimize(w0, shapes, Xtr, ytr, rho=rho_star, L_max=L, B
                                   symmetry=False, n_iter=CAP, tol=TOL, record_weights=True)
 w_pen, it_pen, t_pen, traj_pen = out["w"], int(out["n_iter"]), out["solve_time"], np.array(out["w_history"])
 
-# ---- AdamW: sweep wd to convergence, count (never orders), pick best-val ----
+# ---- AdamW: sweep wd to convergence, count , pick best-val ----
 n_aw = 0; best_aw = None
 for wd in WD_GRID:
     o = adam_optimize(w0, shapes, Xtr, ytr, lr=0.02, n_iter=CAP, weight_decay=wd, tol=TOL)

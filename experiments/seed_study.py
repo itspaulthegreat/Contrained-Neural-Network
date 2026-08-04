@@ -1,28 +1,6 @@
-"""
-seed_study.py
-Statistical honesty check: is IPOPT's edge (or Adam's apparent edge at
-sigma=0.1) real, or within seed noise? And is the Adam baseline FAIR --
-i.e. Adam WITH regularization (weight decay), not just plain Adam?
-
-For each noise level sigma in {0.1, 0.3}, across N random seeds (each seed
-draws a fresh noisy train/test split AND a fresh initial guess), we run
-three methods on the identical data:
-
-  - IPOPT   : hard Lipschitz (L_max=4) + norm-ball + symmetry  (the project)
-  - Adam    : plain, unregularized                              (weak baseline)
-  - AdamW   : Adam + decoupled weight decay, strength tuned on seed 0
-              across a small grid so the baseline gets its BEST shot
-              (the strongest baseline: Adam with tuned weight decay)
-
-Reports per (sigma, method): mean test MSE, std, and the head-to-head win
-rate of IPOPT vs the BEST Adam variant. Also records the achieved
-sensitivity ||W1||_F||W2||_F of each method -- to show that even regularized
-Adam does not let you CHOOSE the sensitivity, it only nudges it.
-
-    python -m experiments.seed_study   # writes figures/fig_seed_study.png
-
-No conclusions are hard-coded: the verdict text is computed from the runs.
-"""
+"""Seed study: IPOPT vs plain Adam vs tuned AdamW over N seeds at sigma in
+{0.1, 0.3}. Reports per-method mean test MSE, IPOPT win rate, and achieved
+sensitivity. Provides run_ipopt/run_adam/tune_wd used by sensitivity.py."""
 
 import copy
 import os
@@ -56,8 +34,7 @@ def data_for(sigma, seed):
 
 
 def run_ipopt(sigma, seed):
-    # core constraints: Lipschitz + norm-ball (the ordering constraint is studied
-    # separately in the symmetry ablation and left out here)
+    # Lipschitz + norm-ball; ordering constraint left out (studied separately)
     exp = _make(f'seedstudy_ipopt_s{seed}', 'seed study', 'seedstudy',
                 method='ipopt', H=8, use_lipschitz=True, use_norm_ball=True,
                 use_symmetry_break=False, L_max=4.0, B_max=6.0,
@@ -71,8 +48,7 @@ def run_adam(sigma, seed, weight_decay=0.0):
     shapes = param_shapes(1, 8, 1)
     Xtr, ytr, Xte, yte = data_for(sigma, seed)
     w0 = random_init(shapes, scale=0.5, seed=seed)
-    # every gradient baseline uses the same stopping rule as the rest of the
-    # project: run until the loss plateaus (change < 1e-9) or the 40000 cap
+    # stop at loss plateau (change < 1e-9) or the 40000 cap
     out = adam_optimize(w0, shapes, Xtr, ytr, lr=0.02, n_iter=40000,
                         weight_decay=weight_decay, tol=1e-9)
     return mse_numpy(out['w'], Xte, yte, shapes), lipschitz_estimate(out['w'], shapes)
@@ -110,12 +86,10 @@ def main():
                              key=lambda k: np.mean(rows[k]))
         best_adam = np.array(rows[best_adam_name])
         ipopt_wins = int(np.sum(ipopt < best_adam))
-        # paired difference + simple significance proxy (std of the mean)
         diff = best_adam - ipopt                       # >0 means IPOPT better
         se = diff.std(ddof=1) / np.sqrt(len(diff))
         tstat = diff.mean() / se if se > 0 else float('inf')
 
-        # honest verdict text, computed
         who = 'IPOPT' if diff.mean() > 0 else best_adam_name
         margin = abs(diff.mean())
         sig = 'clearly (|t|>2)' if abs(tstat) > 2 else 'but within seed noise (|t|<2)'
@@ -129,7 +103,6 @@ def main():
             f"Adam {np.mean(lips['Adam (plain)']):.1f}, "
             f"AdamW {np.mean(lips[f'AdamW (wd={wd:g})']):.1f} (uncontrolled)")
 
-        # strip + box plot
         names = list(rows.keys())
         colors = ['tab:purple', 'tab:green', 'tab:olive']
         for i, (name, c) in enumerate(zip(names, colors)):

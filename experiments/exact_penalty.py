@@ -1,24 +1,7 @@
-# -*- coding: utf-8 -*-
-"""Exact hinge-penalty experiment for the presentation.
-
-The hinge problem
-
-    min_w MSE(w) + rho * max(0, ||W1||_F^2 ||W2||_F^2 - L^2)
-
-is written with an epigraph variable s:
-
-    min_{w,s} MSE(w) + rho*s
-    subject to s >= 0,
-               s >= ||W1||_F^2 ||W2||_F^2 - L^2.
-
-This is exactly the same nonsmooth hinge objective after minimizing over s,
-but it lets IPOPT solve every sweep point to convergence.  Using the same
-solver for the hard and penalty formulations isolates the formulation effect
-instead of mixing it with a fixed-budget Adam endpoint.
-
-    python exact_penalty.py
-        -> figures/fig_exact_penalty.png
-        -> results/exact_penalty.json
+"""Exact hinge-penalty sweep. The hinge min_w MSE + rho*max(0, ||W1||^2||W2||^2 - L^2)
+is solved via its epigraph form (slack s >= 0, s >= violation) so IPOPT converges at
+every rho. Same solver as the hard solve, isolating the formulation effect.
+    -> figures/fig_exact_penalty.png, results/exact_penalty.json
 """
 import json
 import os

@@ -11,10 +11,13 @@ an NLP whose objective is the mean-squared training error and whose constraints
 encode properties the trained model must satisfy:
 
 - **Lipschitz (sensitivity) bound** `‖w1‖² ‖w2‖² ≤ L²` - bounds how fast the
-  output can change with the input (bilinear, nonconvex).
+  output can change with the input (degree-four/biquadratic, nonconvex).
 - **Norm ball** `‖w‖² ≤ B²` - a hard version of L2 regularization (convex).
-- **Bias ordering** `b1[0] ≤ … ≤ b1[H-1]` - removes the permutation symmetry of
-  the hidden units (linear).
+
+The core NLP uses the two constraints above. A **bias-ordering** constraint
+`b1[0] ≤ … ≤ b1[H-1]`, which removes the hidden-unit permutation symmetry, is
+studied separately as an ablation (`symmetry_ablation.py`) and left out of the
+core program.
 
 The NLP is built symbolically with [CasADi](https://web.casadi.org/) and solved
 with [IPOPT](https://github.com/coin-or/Ipopt). The interior-point solve
@@ -42,8 +45,8 @@ nn_constrained_nlp/
 │   ├── callbacks.py        IPOPT per-iteration callback
 │   └── ...                 kkt, multistart, warm_start, convergence, plotting
 ├── experiments/            standalone studies that build on the library
-│   ├── synthetic_protocol.py   three-way-split study on synthetic data
-│   ├── pendulum_protocol.py    validation-based pendulum system ID
+│   ├── synthetic_protocol.py   synthetic teacher-student data (train/val/test)
+│   ├── pendulum_protocol.py    damped-pendulum data (train/val/test)
 │   ├── pendulum_convergence.py hard vs soft, run to convergence
 │   ├── exact_penalty.py        exact-penalty threshold sweep
 │   ├── sensitivity.py          achieved sensitivity across seeds

@@ -1,14 +1,5 @@
-"""
-Depth study: does a DEEPER network change anything?
-
-The professor's "enlarge the network" also means depth. On the synthetic task I
-grow the number of hidden layers (width 8 each) from 1 to 3, keeping the same
-sensitivity budget (Lipschitz product bound) and norm ball, and solve with IPOPT.
-A plain-Adam baseline (run to convergence) is included for reference. The
-question is whether depth buys accuracy, and what it costs the constrained solve.
-
-    python -m experiments.depth_study   ->  results/depth_study.json
-"""
+"""Depth study: IPOPT vs matched penalty-Adam vs unconstrained Adam over
+1-6 hidden layers -> results/depth_study.json."""
 import json
 import os
 import sys

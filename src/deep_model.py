@@ -1,13 +1,6 @@
-"""
-General L-hidden-layer tanh network, used by the depth study.
-
-    yhat(x; w) = W_k tanh(... W_2 tanh(W_1 x + b_1) + b_2 ...) + b_k
-
-The one-hidden-layer case reproduces src/model.py. Weights and biases are stored
-in a single flat vector, sliced the same column-major way in the NumPy and CasADi
-paths. Because tanh is 1-Lipschitz, the network's input sensitivity is bounded by
-the product of the layer norms, prod_i ||W_i||_F, which the depth study constrains.
-"""
+"""General L-hidden-layer tanh network for the depth study. Weights stored in a
+flat vector, sliced column-major in the NumPy and CasADi paths. Input sensitivity
+is bounded by the product of layer norms prod_i ||W_i||_F."""
 
 import numpy as np
 import casadi as ca

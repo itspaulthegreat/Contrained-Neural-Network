@@ -78,7 +78,7 @@ def run_task(task_name, data):
             viol_on=r_on['max_constraint_violation'], viol_off=r_off['max_constraint_violation'],
             min_gap_on=min_adjacent_gap(w_on, shapes),
             order_active_on=min_adjacent_gap(w_on, shapes) < GAP_TOL,   # constraint binding at the optimum
-            free_already_ordered=already_ordered(w_off, shapes),        # did order emerge on its own?
+            free_already_ordered=already_ordered(w_off, shapes),   
             same_minimiser=perm_gap < 1e-3,                             # identical up to a hidden-unit permutation
             perm_distance=perm_gap,
         ))

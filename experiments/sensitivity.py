@@ -1,27 +1,6 @@
-"""
-sensitivity_study.py
-The project's core contribution, made quantitative, and the answer to
-"why not just tune the weight decay until Adam reaches sensitivity 4?"
-
-Because there is NO reliable map  weight_decay -> Lipschitz constant. The
-achieved sensitivity depends on the data draw, the seed, and the noise
-level, so no fixed weight-decay value pins it to a target -- whereas IPOPT
-solves  ||W1||_F ||W2||_F <= 4  exactly, every time.
-
-Two outputs (run AFTER the repo is importable; ~2 min):
-
-  1. fig_wd_vs_sensitivity.png -- sweep weight_decay and plot the achieved
-     sensitivity (mean +/- 1 std across seeds). The band is wide and the
-     mean crosses 4 only by accident at one wd; even there the spread means
-     any single run misses. IPOPT is a flat line at 4 with zero width.
-
-  2. results/sensitivity_table.json + printed table -- per method:
-     mean / std / MAX observed sensitivity and the count of runs that
-     VIOLATE a target bound of 4. This is the real contribution:
-     a chosen, guaranteed sensitivity vs an uncontrolled one.
-
-    python sensitivity_study.py
-"""
+"""Sensitivity study: weight decay does not pin the Lipschitz constant to a
+target, whereas IPOPT enforces ||W1||_F ||W2||_F <= 4 exactly. Produces
+sensitivity_table.json (reported Table I)."""
 
 import json
 import os
@@ -58,8 +37,7 @@ def sensitivity_table(sigmas=(0.1, 0.3)):
                           ('Adam (plain)', ad),
                           (f'AdamW (wd={wd:g})', aw)]:
             a = np.array(arr)
-            # median + range reported alongside mean/std: the AdamW
-            # distribution is right-skewed, so mean/std alone would mislead.
+            # median + range: the AdamW distribution is right-skewed
             table[sigma][name] = dict(
                 mean=float(a.mean()), std=float(a.std(ddof=1)),
                 median=float(np.median(a)), min=float(a.min()), max=float(a.max()),
@@ -70,9 +48,7 @@ def sensitivity_table(sigmas=(0.1, 0.3)):
 
 
 def raw_distribution_figure(table):
-    """Show every seed's achieved sensitivity as a dot -- no hiding behind
-    mean/std. IPOPT is a tight column at 4; AdamW is a right-skewed scatter
-    from 4 to 36, all above the target line."""
+    """Scatter of every seed's achieved sensitivity per method."""
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.6), sharey=False)
     for ax, sigma in zip(axes, sorted(table)):
         methods = table[sigma]
@@ -117,8 +93,7 @@ def wd_sweep_figure(sigma=0.3):
     means, stds = vals.mean(axis=1), vals.std(axis=1, ddof=1)
     med = np.median(vals, axis=1)
     vmin, vmax = vals.min(axis=1), vals.max(axis=1)
-    # store the sweep so other figures (e.g. the motivation panel) read the
-    # same numbers instead of re-running 120 Adam trainings
+    # cache the sweep so other figures reuse these numbers
     import json
     with open(os.path.join(RESULTS, 'wd_sweep_sigma0p3.json'), 'w') as f:
         json.dump({'sigma': sigma, 'target': TARGET, 'n_seeds': N_SEEDS,
@@ -129,9 +104,7 @@ def wd_sweep_figure(sigma=0.3):
     x = np.array([max(w, 3e-5) for w in WD_SWEEP])   # 0 -> placeholder for log
 
     fig, ax = plt.subplots(figsize=(8, 4.6))
-    # band = the OBSERVED range across seeds: every edge is a real run, so
-    # nothing on the plot covers territory no run ever visited (honest on a
-    # log axis where a mean±std band of skewed data would balloon downward)
+    
     ax.fill_between(x, vmin, vmax, color='tab:olive', alpha=0.25,
                     label=f'AdamW achieved sensitivity: observed range over {N_SEEDS} seeds (min-max)')
     ax.plot(x, med, 'o-', color='tab:olive', label='median seed')

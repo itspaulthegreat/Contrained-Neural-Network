@@ -1,14 +1,5 @@
-"""
-src/baseline_adam.py
-Unconstrained baseline: plain Adam gradient descent on the same MSE
-objective, with no constraints at all. This is the "what everyone
-already does" reference point the constrained-NLP (IPOPT / SQP)
-results are measured against.
-
-The gradient is obtained from CasADi (ca.gradient) so the comparison
-uses the exact same objective expression as the constrained solves --
-only the algorithm and the presence of constraints differ.
-"""
+"""Unconstrained baseline: plain Adam on the MSE objective, gradient from
+CasADi so it shares the exact objective of the constrained solves."""
 
 import time
 import numpy as np
@@ -31,22 +22,16 @@ def _build_grad_fn(shapes, X_train, y_train):
 def adam_optimize(w0, shapes, X_train, y_train, lr=0.02, n_iter=3000,
                    beta1=0.9, beta2=0.999, eps=1e-8, tol=1e-9, weight_decay=0.0,
                    record_weights=False):
-    """weight_decay > 0 gives decoupled weight decay (AdamW) -- the standard
-    real-world regularizer, so the baseline can be `regularized Adam`, not just
-    plain Adam. It shrinks weights toward zero each step but, unlike a hard
-    constraint, cannot fix a chosen sensitivity level (see the seed study)."""
+    """weight_decay > 0 gives decoupled weight decay (AdamW). It shrinks
+    weights but, unlike a hard constraint, cannot fix a chosen sensitivity."""
     f_fn, g_fn = _build_grad_fn(shapes, X_train, y_train)
 
     w = np.asarray(w0, dtype=float).flatten()
     m = np.zeros_like(w)
     v = np.zeros_like(w)
     history = []
-    # ||grad f(w_t)||_inf per iteration -- for an unconstrained problem this
-    # is the full KKT residual, used by the convergence_rate study to compare
-    # Adam's first-order decay against IPOPT's Newton-type decay.
+    # ||grad f(w_t)||_inf per iteration (the convergence diagnostic)
     grad_inf_history = []
-    # optional per-iteration weight snapshots, so an animation can replay the
-    # EXACT run this function performs (no duplicated optimizer loop anywhere)
     w_history = [w.copy()] if record_weights else None
 
     t0 = time.time()

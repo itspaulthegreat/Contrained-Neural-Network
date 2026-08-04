@@ -1,12 +1,3 @@
-"""
-Regenerate the figures used in the written report from the stored result files
-in ``results/``. Run the corresponding studies first, then
-
-    python -m experiments.report_figures
-
-writes fig_exact_penalty.png, fig_scaling.png and fig_pendulum.png into
-``figures/``.
-"""
 import json
 import os
 import sys

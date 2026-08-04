@@ -1,29 +1,6 @@
-"""
-src/convergence.py
-Convergence-rate study: KKT residual vs. iteration.
-
-IPOPT is a Newton-type method -- close to the solution it takes steps
-based on second-order (Hessian) information, so its KKT residual drops
-superlinearly in the last iterations. Adam is a first-order method with
-no curvature information: its gradient norm decays slowly (sublinearly)
-and stalls at a much higher level. Plotting both residual histories on
-the same axes makes the difference in *convergence rate* -- not just
-final MSE -- directly visible.
-
-The KKT residual used here:
-  - IPOPT: max(inf_pr, inf_du) per iteration, read from IPOPT's own
-    iteration log via `solver.stats()['iterations']` (inf_pr = primal
-    infeasibility = constraint violation, inf_du = dual infeasibility =
-    stationarity residual of the Lagrangian). For an unconstrained run
-    inf_pr is 0 and this reduces to the gradient norm.
-  - Adam (unconstrained): ||grad f(w_t)||_inf, recorded each iteration
-    by src/baseline_adam.py. For an unconstrained problem this IS the
-    full KKT residual, so the two curves measure the same quantity.
-
-src/solver.py's solve() does not expose IPOPT's per-iteration log, so
--- like src/kkt.py -- this module runs the identical NLP itself through
-the same unmodified building blocks and only adds the stats extraction.
-"""
+"""Runs the IPOPT NLP and extracts its per-iteration residual history
+(inf_pr, inf_du) from solver.stats(), which solver.solve() does not expose.
+Used by the convergence diagnostic."""
 
 import time
 import numpy as np
@@ -35,13 +12,7 @@ from src.analysis import lipschitz_estimate, max_constraint_violation
 
 
 def solve_with_iterates(exp, X_train, y_train, X_test, y_test):
-    """
-    Same IPOPT solve as solver.solve(exp, ...), but additionally returns
-    per-iteration residual histories:
-      kkt_history     : max(inf_pr, inf_du) per iteration
-      inf_pr_history  : primal infeasibility per iteration
-      inf_du_history  : dual infeasibility per iteration
-    """
+    """IPOPT solve that also returns per-iteration kkt/inf_pr/inf_du histories."""
     nlp_data = build_nlp(exp, X_train, y_train)
     nlp = {'x': nlp_data['w'], 'f': nlp_data['f'], 'g': nlp_data['g']}
     solver = ca.nlpsol('solver', 'ipopt', nlp, exp['ipopt_opts'])

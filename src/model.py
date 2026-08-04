@@ -1,16 +1,6 @@
-"""
-src/model.py
-Student network architecture: one hidden layer, tanh activation.
-
-    yhat(x; w) = W2 @ tanh(W1 @ x + b1) + b2
-
-`w` is the single flattened decision-variable vector handed to the NLP
-solver. This module is the only place that knows how `w` slices into
-(W1, b1, W2, b2) -- both the CasADi-symbolic path (used inside the NLP)
-and the NumPy path (used for evaluation/plotting after solving) go
-through the same slicing convention so a solved `w` means the same
-network in both.
-"""
+"""One-hidden-layer tanh student network, yhat(x; w) = W2 tanh(W1 x + b1) + b2.
+w is the flattened decision vector; this module owns the slicing into
+(W1, b1, W2, b2), shared by the CasADi-symbolic and NumPy paths."""
 
 import numpy as np
 import casadi as ca

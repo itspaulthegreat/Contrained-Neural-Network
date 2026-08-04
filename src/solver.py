@@ -1,10 +1,5 @@
-"""
-src/solver.py
-Unified entry point: dispatch one experiment config to the right
-optimizer (IPOPT, SQP, or Adam) and return a result dict with the same
-schema regardless of method, so plotting/logging code never needs to
-know which solver produced a given result.
-"""
+"""Unified entry point: dispatch an experiment config to IPOPT, SQP or Adam
+and return a result dict with the same schema regardless of method."""
 
 import time
 import numpy as np
@@ -40,11 +35,7 @@ def _solve_with_nlpsol(nlp_data, plugin, solver_opts):
 
 
 def solve(exp, X_train, y_train, X_test, y_test):
-    """
-    exp: one fully-resolved experiment dict from configs/experiments.py
-         (must contain method, H, d_in, d_out, and the relevant
-         constraint / solver-option keys for that method).
-    """
+    """exp: a fully-resolved experiment dict from configs/experiments.py."""
     shapes = param_shapes(exp['d_in'], exp['H'], exp['d_out'])
 
     if exp['method'] in ('ipopt', 'sqp'):
@@ -58,9 +49,7 @@ def solve(exp, X_train, y_train, X_test, y_test):
         history = []
         kkt_history = []
         g_violation = max_constraint_violation(out['g_opt'], nlp_data['lbg'], nlp_data['ubg'])
-        # Hessian conditioning of the objective at the solution -- an
-        # optimization-health metric (see src/analysis.py). Both constrained
-        # solvers get it so IPOPT and SQP can be compared on the same problem.
+        # objective Hessian conditioning at the solution (see src/analysis.py)
         hess_cond = compute_condition_number(w_opt, shapes, X_train, y_train)
 
     elif exp['method'] == 'adam':
