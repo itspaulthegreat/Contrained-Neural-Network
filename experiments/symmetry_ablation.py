@@ -1,18 +1,7 @@
-"""
-Ablation of the symmetry-breaking (ordered-bias) constraint.
-
-The hidden units of a one-layer network can be permuted without changing the
-function, so every minimiser has H! relabelled copies. The ordered-bias
-constraint b1[0] <= ... <= b1[H-1] picks one canonical copy. This study asks
-whether that constraint is doing anything useful: for a range of random
-initialisations, each problem is solved twice -- with and without the ordering
-constraint, all else identical (Lipschitz and norm-ball active in both) -- and
-we compare fit quality, solve cost, constraint activity, and whether the two
-solutions are permutations of one another.
-
-    python symmetry_ablation.py
-        -> results/symmetry_ablation.json
-"""
+"""Ablation of the bias-ordering constraint b1[0] <= ... <= b1[H-1], which breaks
+the hidden-unit permutation symmetry. Each task is solved with and without the
+constraint (Lipschitz and norm-ball active in both) over several seeds, comparing
+fit, cost and constraint activity -> results/symmetry_ablation.json."""
 import json
 import os
 
@@ -53,6 +42,7 @@ def already_ordered(w, shapes, tol=1e-6):
 
 
 def run_task(task_name, data):
+    """Solve each seed with and without the ordering constraint; return the rows."""
     X_train, y_train, X_test, y_test = data
     shapes = param_shapes(1, H, 1)
     rows = []
@@ -86,6 +76,7 @@ def run_task(task_name, data):
 
 
 def summarise(name, rows):
+    """Print the per-seed table and the aggregate ordering-vs-free comparison."""
     d_test = np.array([r['test_on'] - r['test_off'] for r in rows])   # + means ordering HURT the fit
     active_on = sum(r['order_active_on'] for r in rows)
     free_ordered = sum(r['free_already_ordered'] for r in rows)
@@ -107,6 +98,7 @@ def summarise(name, rows):
 
 
 def main():
+    """Run the ablation on the synthetic and pendulum tasks and save results."""
     tasks = {
         'synthetic': generate_dataset(noise_std=0.05, seed=0),
         'pendulum': generate_pendulum_dataset(noise_std=0.05, seed=0, t_range=(0.0, 6.0)),

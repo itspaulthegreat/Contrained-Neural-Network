@@ -1,24 +1,6 @@
-"""
-src/constraint_geometry.py
-Constraint-geometry / constraint-interaction study (GROUP 9).
-
-The Lipschitz bound and the weight norm-ball are switched on together and the
-norm-ball radius B_max is swept from very tight (0.5) to loose (20.0) while
-L_max is held fixed. The question is which constraint actually shapes the
-solution at each B_max:
-
-  - large B_max : the norm-ball is slack, only the Lipschitz bound binds
-                  (its dual variable is nonzero, the norm-ball's is ~0)
-  - small B_max : the norm-ball dominates and binds (its dual variable is
-                  nonzero), squeezing the weights below what Lipschitz alone
-                  would require
-
-This is read straight off IPOPT's Lagrange multipliers (`sol['lam_g']`), the
-same shadow-price mechanism src/kkt.py uses -- here for *both* constraints at
-once. build_nlp adds Lipschitz first, then the norm-ball, so with symmetry
-breaking off the dual rows are unambiguously lam_g[0] (Lipschitz) and
-lam_g[1] (norm-ball).
-"""
+"""Constraint-interaction study. Lipschitz and norm-ball are both on while the
+ball radius B_max is swept; the Lagrange multipliers (lam_g[0]=Lipschitz,
+lam_g[1]=norm-ball) show which constraint binds at each radius."""
 
 import time
 import numpy as np
@@ -31,6 +13,7 @@ from src.analysis import (lipschitz_estimate, max_constraint_violation,
 
 
 def solve_with_duals(exp, X_train, y_train, X_test, y_test):
+    """IPOPT solve returning both constraints' multipliers and which one binds."""
     if not (exp.get('use_lipschitz', False) and exp.get('use_norm_ball', False)):
         raise ValueError("constraint_geometry needs BOTH use_lipschitz and "
                          "use_norm_ball True (it studies their interaction)")

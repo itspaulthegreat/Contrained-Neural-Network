@@ -17,10 +17,12 @@ def _layer_dims(shapes):
 
 
 def n_params(shapes):
+    """Total weights + biases across all layers."""
     return sum(r * c + r for r, c in _layer_dims(shapes))
 
 
 def unflatten_numpy(w, shapes):
+    """Slice the flat vector into a list of (W, b) per layer (NumPy)."""
     w = np.asarray(w, dtype=float).flatten()
     layers, i = [], 0
     for r, c in _layer_dims(shapes):
@@ -31,6 +33,7 @@ def unflatten_numpy(w, shapes):
 
 
 def unflatten_symbolic(w, shapes):
+    """Slice the flat vector into a list of (W, b) per layer (CasADi)."""
     layers, i = [], 0
     for r, c in _layer_dims(shapes):
         W = ca.reshape(w[i:i + r * c], r, c); i += r * c
@@ -40,6 +43,7 @@ def unflatten_symbolic(w, shapes):
 
 
 def forward_numpy(w, X, shapes):
+    """NumPy forward pass through all layers (tanh hidden, linear output)."""
     h = X
     layers = unflatten_numpy(w, shapes)
     for k, (W, b) in enumerate(layers):
@@ -49,6 +53,7 @@ def forward_numpy(w, X, shapes):
 
 
 def forward_symbolic(w, X, shapes):
+    """CasADi forward pass through all layers (tanh hidden, linear output)."""
     N = X.shape[1]
     h = ca.MX(X)
     layers = unflatten_symbolic(w, shapes)
@@ -59,10 +64,12 @@ def forward_symbolic(w, X, shapes):
 
 
 def mse_numpy(w, X, y, shapes):
+    """Mean-squared error of the deep network on (X, y)."""
     return float(np.mean((forward_numpy(w, X, shapes) - y) ** 2))
 
 
 def random_init(shapes, scale=0.5, seed=0):
+    """Seeded Gaussian initial weight vector for the deep network."""
     return np.random.default_rng(seed).normal(0, scale, size=n_params(shapes))
 
 

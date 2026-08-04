@@ -38,6 +38,7 @@ va = lambda w: mse_numpy(w, Xva, yva, shapes)
 
 
 def checks(w):
+    """Rate, ||w||, test MSE and feasibility flags for a solution w."""
     _, b1, _, _ = unflatten_numpy(w, shapes)
     rate = lipschitz_estimate(w, shapes); wn = float(np.linalg.norm(w))
     sym = float(np.diff(b1.flatten()).min())

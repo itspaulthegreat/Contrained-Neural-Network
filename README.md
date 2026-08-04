@@ -1,14 +1,15 @@
-# Neural Network Training as a Constrained Nonlinear Program
+# Neural Network Optimization as a Constrained Nonlinear Program
 
-Training a small neural network, written as a constrained nonlinear program
-(NLP) and solved with an interior-point method, and compared against the
-standard machine-learning approach of soft penalties trained by Adam.
+Optimizing the weights of a small neural network, written as a constrained
+nonlinear program (NLP) and solved with an interior-point method, and compared
+against the standard machine-learning approach of soft penalties minimized by
+Adam.
 
 ## Idea
 
 The weights of a one-hidden-layer `tanh` network are the decision variables of
-an NLP whose objective is the mean-squared training error and whose constraints
-encode properties the trained model must satisfy:
+an NLP whose objective is the mean-squared error and whose constraints encode
+properties the resulting model must satisfy:
 
 - **Lipschitz (sensitivity) bound** `‖w1‖² ‖w2‖² ≤ L²` - bounds how fast the
   output can change with the input (degree-four/biquadratic, nonconvex).
@@ -95,6 +96,25 @@ figures with:
 ```bash
 python -m experiments.report_figures
 ```
+
+## Reproducing the report
+
+Each result in the report is produced by one standalone study. Run the study,
+then `report_figures` to redraw the shared figures.
+
+| Report item | Produced by | Result file |
+| --- | --- | --- |
+| Fig. 2 (optimizer diagnostic) | `experiments.convergence` | `convergence.json` |
+| Table I (certificate control) | `experiments.sensitivity` | `sensitivity_table.json` |
+| Fig. 3 (exact-penalty sweep) | `experiments.exact_penalty` | `exact_penalty.json` |
+| Fig. 4 (width scaling) | `experiments.scaling_study` | `scaling_study.json` |
+| Table II, Fig. 5 (pendulum) | `experiments.pendulum_convergence` | `pendulum_convergence.json`, `pendulum_traj.npz` |
+| Fig. 6, 7, Table III (depth) | `experiments.depth_study` | `depth_study.json` |
+
+The bias-ordering ablation (`experiments.symmetry_ablation`, discussed but not a
+core constraint) writes `symmetry_ablation.json`. All studies are deterministic
+(fixed seeds); wall-clock times vary between machines but the reported errors and
+certificate values do not.
 
 ## Tests
 

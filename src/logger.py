@@ -33,6 +33,7 @@ _CSV_FIELDS = [
 
 
 def save_result(res: dict, results_dir: str = 'results'):
+    """Append scalar metrics to summary.csv and dump the full result as JSON."""
     os.makedirs(results_dir, exist_ok=True)
     ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
@@ -54,12 +55,14 @@ def save_result(res: dict, results_dir: str = 'results'):
 
 
 def load_result(name: str, results_dir: str = 'results') -> dict:
+    """Load one experiment's full JSON result by name."""
     path = os.path.join(results_dir, f'{name}.json')
     with open(path) as f:
         return json.load(f)
 
 
 def load_summary(results_dir: str = 'results') -> list:
+    """Load summary.csv as a list of row dicts (empty if it does not exist)."""
     path = os.path.join(results_dir, 'summary.csv')
     if not os.path.exists(path):
         return []

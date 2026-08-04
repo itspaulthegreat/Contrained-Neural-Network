@@ -1,20 +1,7 @@
-"""
-src/kkt.py
-KKT / dual-variable analysis.
-
-When IPOPT solves a constrained NLP it also computes a Lagrange
-multiplier (dual variable) for every constraint -- the "shadow price":
-roughly how much the objective would improve per unit relaxation of
-that constraint's bound. By complementary slackness, lambda > 0 means
-the constraint is active (binding, costly); lambda ~ 0 means it is
-slack (not limiting the solution at all).
-
-src/solver.py's solve() only returns the primal solution (it was not
-built to expose solver internals), so this module solves the identical
-NLP itself -- using the same unmodified building blocks
-(src.nlp_builder.build_nlp) -- and reads the dual variable directly off
-the raw CasADi solution (`sol['lam_g']`).
-"""
+"""KKT / dual-variable analysis. IPOPT returns a Lagrange multiplier per
+constraint (its shadow price): lambda > 0 means active, lambda ~ 0 means slack.
+solver.solve() does not expose the duals, so this module runs the same NLP and
+reads sol['lam_g'] directly."""
 
 import time
 import numpy as np
@@ -26,16 +13,9 @@ from src.analysis import lipschitz_estimate, max_constraint_violation, compute_c
 
 
 def solve_with_dual(exp, X_train, y_train, X_test, y_test):
-    """
-    Solves the same constrained NLP as solver.solve(exp, ...) (IPOPT),
-    but additionally returns the Lagrange multiplier for the Lipschitz
-    constraint as `lam_lipschitz`.
-
-    Assumes the Lipschitz constraint is the *only* active constraint
-    (use_lipschitz=True, the norm-ball and symmetry-breaking constraints
-    off) -- matching the existing 'lipschitz_sweep' group's pattern --
-    so its row in g is unambiguously row 0.
-    """
+    """IPOPT solve that also returns the Lipschitz constraint's multiplier as
+    `lam_lipschitz`. Requires the Lipschitz constraint to be the only one active,
+    so it is unambiguously g[0]."""
     if not exp.get('use_lipschitz', False):
         raise ValueError("kkt_analysis experiments must have use_lipschitz=True")
     if exp.get('use_norm_ball', False) or exp.get('use_symmetry_break', False):

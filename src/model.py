@@ -7,10 +7,12 @@ import casadi as ca
 
 
 def param_shapes(d_in, H, d_out):
+    """Layer sizes as a dict, passed around to describe the network."""
     return dict(d_in=d_in, H=H, d_out=d_out)
 
 
 def n_params(shapes):
+    """Length of the flat weight vector: W1 + b1 + W2 + b2."""
     H, d_in, d_out = shapes['H'], shapes['d_in'], shapes['d_out']
     return H * d_in + H + d_out * H + d_out
 
@@ -24,6 +26,7 @@ def flatten(W1, b1, W2, b2):
 
 
 def unflatten_numpy(w, shapes):
+    """Slice the flat vector w back into (W1, b1, W2, b2) as NumPy arrays."""
     H, d_in, d_out = shapes['H'], shapes['d_in'], shapes['d_out']
     w = np.asarray(w, dtype=float).flatten()
     i = 0
@@ -55,6 +58,7 @@ def forward_symbolic(w, X, shapes):
 
 
 def forward_numpy(w, X, shapes):
+    """NumPy forward pass; X is (d_in, N), returns (d_out, N)."""
     W1, b1, W2, b2 = unflatten_numpy(w, shapes)
     Z1 = W1 @ X + b1
     A1 = np.tanh(Z1)
@@ -62,10 +66,12 @@ def forward_numpy(w, X, shapes):
 
 
 def mse_numpy(w, X, y, shapes):
+    """Mean-squared error of the network on (X, y)."""
     yhat = forward_numpy(w, X, shapes)
     return float(np.mean((yhat - y) ** 2))
 
 
 def random_init(shapes, scale=0.5, seed=0):
+    """Seeded Gaussian initial weight vector."""
     rng = np.random.default_rng(seed)
     return rng.normal(0, scale, size=n_params(shapes))

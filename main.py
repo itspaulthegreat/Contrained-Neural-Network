@@ -41,9 +41,10 @@ FIGURES_DIR = os.path.join(os.path.dirname(__file__), 'figures')
 
 
 def run_experiment(exp):
-    # data_seed lets the 'multistart' group fix the training data while
-    # varying only the init seed; every existing experiment has no
-    # 'data_seed' key, so this falls back to exp['seed'] exactly as before.
+    """Generate this experiment's data, dispatch to the right solver, and return
+    the result plus the data used. Some groups need solver internals (duals) or a
+    solver method that the plain solve() does not expose, handled below."""
+    # data_seed lets 'multistart' fix the data while varying only the init seed
     data_seed = exp.get('data_seed', exp['seed'])
     if exp.get('task') == 'pendulum':
         # physically meaningful task (Group 13): damped-pendulum system ID
@@ -74,6 +75,7 @@ def run_experiment(exp):
 
 
 def make_comparison_figures(all_results, args):
+    """Draw the per-group comparison figures for whichever groups have results."""
     def group(name):
         return [r for r in all_results.values() if r['group'] == name]
 
@@ -146,6 +148,8 @@ def make_comparison_figures(all_results, args):
 
 
 def main():
+    """CLI entry point: select experiments by group/name, run them, and (unless
+    --no-plots) draw the comparison figures."""
     parser = argparse.ArgumentParser()
     parser.add_argument('--group', default=None, help='Only run experiments from this group')
     parser.add_argument('--name', default=None, help='Only run the experiment with this name')

@@ -1,3 +1,5 @@
+"""Tests for the constraint builders: each returns the right expression and
+bounds, and the power-iteration spectral norm matches NumPy's SVD."""
 import os
 import sys
 import numpy as np
@@ -19,6 +21,7 @@ def _split(w_val, shapes):
 
 
 def test_lipschitz_constraint_bounds():
+    """The Lipschitz expression equals ||W1||^2 ||W2||^2 with upper bound L^2."""
     shapes = param_shapes(d_in=1, H=4, d_out=1)
     w_val = random_init(shapes, scale=1.0, seed=0)
     (W1v, b1v, W2v, b2v), (w, W1, b1, W2, b2) = _split(w_val, shapes)
@@ -34,6 +37,7 @@ def test_lipschitz_constraint_bounds():
 
 
 def test_norm_ball_constraint():
+    """The norm-ball expression equals ||w||^2 with upper bound B^2."""
     shapes = param_shapes(d_in=1, H=4, d_out=1)
     w_val = random_init(shapes, scale=1.0, seed=1)
     n = n_params(shapes)
@@ -46,9 +50,8 @@ def test_norm_ball_constraint():
 
 
 def test_spectral_norm_matches_numpy_svd():
-    # Use d_in=3 so W1 (H x 3) is a genuine matrix, not a vector -- then the
-    # power-iteration spectral norm must agree with numpy's exact SVD, and
-    # must be <= the Frobenius norm the proxy uses.
+    """Power-iteration spectral norm matches NumPy's SVD (and is <= Frobenius).
+    d_in=3 makes W1 a genuine matrix rather than a vector."""
     shapes = param_shapes(d_in=3, H=5, d_out=2)
     w_val = random_init(shapes, scale=1.0, seed=7)
     (W1v, b1v, W2v, b2v), (w, W1, b1, W2, b2) = _split(w_val, shapes)
@@ -69,6 +72,7 @@ def test_spectral_norm_matches_numpy_svd():
 
 
 def test_symmetry_breaking_shape():
+    """Bias-ordering builds H-1 constraints b1[i]-b1[i+1] <= 0."""
     shapes = param_shapes(d_in=1, H=5, d_out=1)
     w_val = random_init(shapes, scale=1.0, seed=2)
     (W1v, b1v, W2v, b2v), (w, W1, b1, W2, b2) = _split(w_val, shapes)

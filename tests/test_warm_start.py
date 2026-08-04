@@ -1,11 +1,6 @@
-"""
-tests/test_warm_start.py
-───────────────────────────
-Checks the core claim of the GROUP 8 warm-start study: re-using the solution
-of a looser Lipschitz constraint as the initial guess for a tighter one is
-both cheaper (fewer IPOPT iterations) and lands on an equivalent-quality
-solution that still respects the constraint.
-"""
+"""Tests the warm-start claim: using the solution of a looser Lipschitz bound
+as the initial guess for a tighter one is cheaper (fewer IPOPT iterations) and
+reaches an equivalent-quality solution that still respects the constraint."""
 
 import os
 import sys
@@ -44,15 +39,17 @@ _warm = _solve(4.0, x0=_loose['w'])
 
 
 def test_warm_start_uses_fewer_iterations():
+    """Warm-started solve takes fewer IPOPT iterations than the cold solve."""
     assert _warm['n_iter'] < _cold['n_iter'], (
         f"warm n_iter={_warm['n_iter']} not fewer than cold n_iter={_cold['n_iter']}")
 
 
 def test_warm_start_respects_lipschitz_constraint():
-    # Slack or binding, the warm-started solution must not violate the bound.
+    """The warm-started solution still satisfies the tighter bound."""
     assert _warm['max_constraint_violation'] <= 1e-9
 
 
 def test_warm_and_cold_reach_similar_quality():
+    """Warm and cold solves reach essentially the same training error."""
     rel = abs(_warm['train_mse'] - _cold['train_mse']) / _cold['train_mse']
     assert rel < 0.10, f"train_mse differ by {rel:.1%} (warm={_warm['train_mse']}, cold={_cold['train_mse']})"
