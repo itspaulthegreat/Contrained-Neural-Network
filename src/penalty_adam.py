@@ -33,6 +33,7 @@ def _build_penalty_grad_fn(shapes, X_train, y_train, L_max, rho):
 def penalty_adam_optimize(w0, shapes, X_train, y_train, L_max, rho,
                            lr=0.02, n_iter=3000, beta1=0.9, beta2=0.999,
                            eps=1e-8, tol=1e-9, record_weights=False):
+    """Adam on MSE + rho*hinge(Lipschitz). Stops at a loss plateau or n_iter."""
     f_fn, g_fn = _build_penalty_grad_fn(shapes, X_train, y_train, L_max, rho)
 
     w = np.asarray(w0, dtype=float).flatten()
@@ -117,6 +118,7 @@ def multi_penalty_adam_optimize(w0, shapes, X_train, y_train, rho,
 
 
 def solve_penalty_adam(exp, X_train, y_train, X_test, y_test):
+    """Run penalty_adam_optimize from an experiment config; return a result dict."""
     shapes = param_shapes(exp['d_in'], exp['H'], exp['d_out'])
     w0 = random_init(shapes, scale=exp.get('init_scale', 0.5), seed=exp.get('seed', 0))
 

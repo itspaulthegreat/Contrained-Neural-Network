@@ -1,3 +1,5 @@
+"""Redraws the figures used in the report from the stored result JSONs in
+results/. Run the individual studies first, then this module."""
 import json
 import os
 import sys
@@ -24,6 +26,7 @@ def _load(name):
 
 
 def fig_exact_penalty():
+    """Certificate vs penalty weight: the feasibility transition near lambda*."""
     d = _load("exact_penalty.json")
     rho = np.array(d["rho"]); ach = np.array(d["achieved"])
     L, lam, ip_rate = d["L"], d["lambda_star"], d["ip_rate"]
@@ -125,6 +128,7 @@ def fig_depth_cost():
 
 
 def fig_pendulum():
+    """Damped-pendulum fits: data, true response, and the two matched models."""
     from experiments.pendulum_protocol import three_way_split_pendulum, H
     Z = np.load(os.path.join(RESULTS, "pendulum_traj.npz"))
     shapes = param_shapes(1, H, 1)
@@ -174,6 +178,7 @@ def fig_convergence():
 
 
 def main():
+    """Redraw every report figure from the current result files."""
     fig_exact_penalty()
     fig_scaling()
     fig_depth()

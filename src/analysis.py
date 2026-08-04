@@ -13,6 +13,7 @@ def lipschitz_estimate(w, shapes):
 
 
 def max_constraint_violation(g, lbg, ubg):
+    """Largest amount by which g falls outside [lbg, ubg] (0 if feasible)."""
     if len(g) == 0:
         return 0.0
     lo = np.maximum(np.asarray(lbg) - g, 0.0)

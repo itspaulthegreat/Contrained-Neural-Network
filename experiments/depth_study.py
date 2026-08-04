@@ -25,6 +25,7 @@ Xtr, ytr, Xte, yte = generate_dataset(n_train=60, n_test=40, noise_std=0.05, see
 
 
 def solve_ipopt(shapes):
+    """Hard solve: minimize MSE s.t. Frobenius-product certificate and norm ball."""
     w = ca.MX.sym("w", n_params(shapes))
     f = ca.sumsqr(forward_symbolic(w, Xtr, shapes) - ytr) / Xtr.shape[1]
     g = ca.vertcat(lipschitz_product_symbolic(w, shapes), ca.sumsqr(w))
@@ -77,6 +78,7 @@ def adam_penalty(shapes, rho=1.0):
 
 
 def main():
+    """Sweep depth 1..6; record IPOPT, penalty-Adam and unconstrained Adam."""
     rows = []
     for depth in DEPTHS:
         shapes = deep_shapes(1, [WIDTH] * depth, 1)

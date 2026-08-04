@@ -1,3 +1,5 @@
+"""Tests for the general deep model: parameter counts, agreement with the
+one-layer model, NumPy/CasADi forward passes, and the Lipschitz product."""
 import numpy as np
 import casadi as ca
 
@@ -7,6 +9,7 @@ from src.analysis import lipschitz_estimate as sm_lipschitz
 
 
 def test_n_params():
+    """Parameter count matches the hand-computed value at several depths."""
     assert dm.n_params(dm.deep_shapes(1, [8], 1)) == 25          # 8+8+8+1
     assert dm.n_params(dm.deep_shapes(1, [8, 8], 1)) == 97       # +64+8
     assert dm.n_params(dm.deep_shapes(1, [8, 8, 8], 1)) == 169   # +64+8
@@ -24,6 +27,7 @@ def test_one_layer_matches_model():
 
 
 def test_symbolic_equals_numpy():
+    """NumPy and CasADi deep forward passes agree at several depths."""
     for hidden in ([8], [8, 8], [6, 5, 4]):
         shapes = dm.deep_shapes(1, hidden, 1)
         n = dm.n_params(shapes)
@@ -35,6 +39,7 @@ def test_symbolic_equals_numpy():
 
 
 def test_lipschitz_product_positive():
+    """The symbolic Frobenius-product equals the squared numeric estimate."""
     shapes = dm.deep_shapes(1, [8, 8], 1)
     w = ca.MX.sym('w', dm.n_params(shapes))
     g = ca.Function('g', [w], [dm.lipschitz_product_symbolic(w, shapes)])

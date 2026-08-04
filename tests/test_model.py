@@ -1,3 +1,5 @@
+"""Tests for the one-hidden-layer model: weight (un)flattening, the NumPy and
+CasADi forward passes agreeing, and the MSE."""
 import os
 import sys
 import numpy as np
@@ -10,6 +12,7 @@ from src.model import (param_shapes, n_params, flatten, unflatten_numpy,
 
 
 def test_flatten_unflatten_roundtrip():
+    """flatten then unflatten returns the original weight matrices."""
     shapes = param_shapes(d_in=3, H=5, d_out=2)
     rng = np.random.default_rng(1)
     W1 = rng.normal(size=(5, 3)); b1 = rng.normal(size=(5, 1))
@@ -26,6 +29,7 @@ def test_flatten_unflatten_roundtrip():
 
 
 def test_numpy_and_symbolic_forward_agree():
+    """The NumPy and CasADi forward passes give the same output."""
     shapes = param_shapes(d_in=1, H=4, d_out=1)
     w = random_init(shapes, scale=0.5, seed=2)
     X = np.linspace(-2, 2, 7).reshape(1, -1)
@@ -41,6 +45,7 @@ def test_numpy_and_symbolic_forward_agree():
 
 
 def test_mse_zero_for_perfect_fit():
+    """MSE is (near) zero when predictions equal the targets."""
     shapes = param_shapes(d_in=1, H=4, d_out=1)
     w = random_init(shapes, scale=0.5, seed=3)
     X = np.linspace(-2, 2, 7).reshape(1, -1)

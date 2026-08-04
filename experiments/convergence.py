@@ -20,6 +20,7 @@ Xtr, ytr, Xte, yte = generate_dataset(n_train=60, n_test=40, noise_std=0.05, see
 
 
 def main():
+    """Record IPOPT KKT residuals and Adam gradient norms -> convergence.json."""
     exp = _make("conv_ipopt", "convergence", "convergence", method="ipopt", H=8,
                 use_lipschitz=True, use_norm_ball=True, L_max=L, B_max=B, noise_std=0.05,
                 ipopt_opts=dict(ipopt=dict(max_iter=3000, tol=1e-9, print_level=0),

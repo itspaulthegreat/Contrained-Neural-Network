@@ -83,6 +83,7 @@ ADAM_OPTS = dict(
 
 
 def _make(name, label, group, **overrides):
+    """Build one experiment config: DATA + DEFAULTS with per-experiment overrides."""
     cfg = dict(DATA)
     cfg.update(DEFAULTS)
     cfg.update(

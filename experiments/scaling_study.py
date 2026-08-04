@@ -30,6 +30,7 @@ Xtr, ytr, Xte, yte = generate_dataset(n_train=60, n_test=40, noise_std=0.05, see
 
 
 def solve_ipopt(H):
+    """Hard solve at width H: minimize MSE s.t. Lipschitz certificate + norm ball."""
     shapes = param_shapes(1, H, 1)
     w = ca.MX.sym("w", n_params(shapes))
     f = ca.sumsqr(forward_symbolic(w, Xtr, shapes) - ytr) / Xtr.shape[1]
@@ -46,6 +47,7 @@ def solve_ipopt(H):
 
 
 def run_penalty(H):
+    """Matched penalty-Adam at width H, same two requirements as the hard solve."""
     shapes = param_shapes(1, H, 1)
     out = multi_penalty_adam_optimize(random_init(shapes, seed=0), shapes, Xtr, ytr,
                                       rho=RHO, L_max=L, B_max=B, symmetry=False,
@@ -62,6 +64,7 @@ def _record(w, shapes, iters, dt, ok):
 
 
 def main():
+    """Sweep width H; record matched IPOPT vs penalty-Adam cost and accuracy."""
     rows = []
     for H in SIZES:
         r = dict(H=H, ipopt=solve_ipopt(H), penalty=run_penalty(H))

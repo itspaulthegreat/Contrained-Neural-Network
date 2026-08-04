@@ -1,22 +1,7 @@
-"""
-src/warm_start.py
-Warm-start study (GROUP 8).
-
-A classic NLP technique: when a constraint is tightened in small steps, the
-solution of the previous (looser) problem is a much better initial guess for
-the next (tighter) one than a generic random start -- so the solver lands in
-the right basin and converges in far fewer iterations.
-
-Here the Lipschitz bound is tightened from L_max=32 down to L_max=0.5 and two
-strategies are compared on the identical sequence of NLPs:
-
-  cold start : every solve starts from the SAME random w0 (build_nlp's default)
-  warm start : every solve starts from the PREVIOUS (looser) solution
-
-Each solve is an ordinary IPOPT solve built with the same unmodified
-src.nlp_builder.build_nlp; the only thing that changes between the two
-strategies is the initial guess `x0` handed to the solver.
-"""
+"""Warm-start study. When the Lipschitz bound is tightened step by step, the
+previous (looser) solution is a better initial guess than a random start, so
+the solver converges in fewer iterations. Compares cold starts (fixed random
+w0) against warm starts (previous solution) over the same sequence of bounds."""
 
 import time
 import numpy as np
@@ -30,12 +15,8 @@ from src.analysis import (lipschitz_estimate, max_constraint_violation,
 
 
 def solve_ipopt_from(cfg, X_train, y_train, X_test, y_test, x0=None):
-    """
-    One IPOPT solve of the constrained NLP described by `cfg`. If `x0` is
-    given it is used as the initial guess (warm start); otherwise build_nlp's
-    default random w0 is used (cold start). Returns a result dict in the same
-    schema the rest of the project uses.
-    """
+    """One IPOPT solve of cfg's NLP. If x0 is given it is the warm start;
+    otherwise build_nlp's random w0 is used (cold start)."""
     nlp_data = build_nlp(cfg, X_train, y_train)
     nlp = {'x': nlp_data['w'], 'f': nlp_data['f'], 'g': nlp_data['g']}
     solver = ca.nlpsol('solver', 'ipopt', nlp, cfg['ipopt_opts'])
@@ -77,12 +58,8 @@ def solve_ipopt_from(cfg, X_train, y_train, X_test, y_test, x0=None):
 
 
 def run_warm_start_study(base_cfg):
-    """
-    Runs the full cold-vs-warm sweep described by `base_cfg` and returns a flat
-    list of result dicts, each tagged with `strategy` ('cold' or 'warm') and
-    its `L_max`. `base_cfg['warm_start_L_values']` is the sequence of bounds,
-    expected in *tightening* (descending) order.
-    """
+    """Run the full cold-vs-warm sweep over the (descending) bound sequence and
+    return the tagged result dicts."""
     L_values = base_cfg['warm_start_L_values']
 
     data_seed = base_cfg.get('data_seed', base_cfg['seed'])

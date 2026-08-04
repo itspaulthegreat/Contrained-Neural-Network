@@ -102,6 +102,7 @@ def conditions_note(fig, results, extra='', split='60 train / 40 test'):
 #
 
 def plot_fit(res, X_train, y_train, X_test, y_test, x_range, path):
+    """Plot the fitted model against the training and test data."""
     shapes = param_shapes(1, res['H'], 1)
     w = np.array(res['w'])
 
@@ -138,6 +139,7 @@ def _method_label(r):
 
 
 def plot_method_comparison(results, path):
+    """Compare methods (error, sensitivity, cost) on the same problem."""
     results = sorted(results, key=lambda r: (r['method'], r.get('use_spectral_norm', False)))
     names = [_method_label(r) for r in results]
     colors = [METHOD_COLORS.get(r['method'], 'tab:gray') for r in results]
@@ -175,6 +177,7 @@ def plot_method_comparison(results, path):
 #
 
 def plot_lipschitz_sweep(results, path):
+    """Achieved sensitivity and error across the Lipschitz-bound sweep."""
     results = sorted(results, key=lambda r: r['L_max'])
     L = [r['L_max'] for r in results]
     train_mse = [r['train_mse'] for r in results]
@@ -214,6 +217,7 @@ def plot_lipschitz_sweep(results, path):
 #
 
 def plot_size_scaling(results, path):
+    """Solve time and test error as the network width grows."""
     results = sorted(results, key=lambda r: r['n_vars'])
     n_vars = [r['n_vars'] for r in results]
     solve_time = [r['solve_time'] for r in results]
@@ -248,6 +252,7 @@ def plot_size_scaling(results, path):
 #
 
 def plot_noise_robustness(results, path):
+    """Test error across noise levels for each method."""
     noise_levels = sorted(set(r['noise_std'] for r in results))
     methods = ['ipopt', 'adam']
     colors = {'ipopt': METHOD_COLORS['ipopt'], 'adam': METHOD_COLORS['adam']}
@@ -285,6 +290,7 @@ def plot_noise_robustness(results, path):
 #
 
 def plot_adam_convergence(res, path):
+    """Loss and gradient-norm history for one Adam run."""
     fig, ax = plt.subplots(figsize=(6, 4))
     ax.plot(res['history'], color=METHOD_COLORS['adam'])
     ax.set_yscale('log')
@@ -301,6 +307,7 @@ def plot_adam_convergence(res, path):
 #
 
 def plot_multistart(results, path):
+    """Spread of solutions found over random initializations."""
     train_mse = np.array([r['train_mse'] for r in results])
     lip = np.array([r['lipschitz_estimate'] for r in results])
 
@@ -332,6 +339,7 @@ def plot_multistart(results, path):
 #
 
 def plot_kkt_analysis(results, path):
+    """Lipschitz multiplier (shadow price) across the bound sweep."""
     results = sorted(results, key=lambda r: r['L_max'])
     L = [r['L_max'] for r in results]
     train_mse = [r['train_mse'] for r in results]
@@ -370,6 +378,7 @@ def plot_kkt_analysis(results, path):
 #
 
 def plot_penalty_vs_hard(results, path):
+    """Hard constraint vs soft penalty at matched requirements."""
     ipopt_ref = [r for r in results if r['method'] == 'ipopt']
     penalty = sorted([r for r in results if r['method'] == 'penalty_adam'],
                       key=lambda r: r['rho'])
@@ -427,6 +436,7 @@ def plot_penalty_vs_hard(results, path):
 #
 
 def plot_warm_start(results, path):
+    """Cold vs warm start iteration counts across tightening bounds."""
     cold = sorted([r for r in results if r['strategy'] == 'cold'], key=lambda r: r['L_max'])
     warm = sorted([r for r in results if r['strategy'] == 'warm'], key=lambda r: r['L_max'])
 
@@ -471,6 +481,7 @@ def plot_warm_start(results, path):
 #
 
 def plot_constraint_geometry(results, path):
+    """Which constraint binds as the norm-ball radius varies."""
     results = sorted(results, key=lambda r: r['B_max'])
     B = [r['B_max'] for r in results]
     train_mse = [r['train_mse'] for r in results]
@@ -512,6 +523,7 @@ def plot_constraint_geometry(results, path):
 #
 
 def plot_complexity(results, path):
+    """Wall-clock cost of the solvers versus problem size."""
     """results: the 'complexity' group (adam per H) PLUS the 'size_scaling'
     group (constrained IPOPT per H) - same data and sizes."""
     series = [
@@ -561,6 +573,7 @@ def plot_complexity(results, path):
 #
 
 def plot_pendulum(results, X_train, y_train, path):
+    """Damped-pendulum fits for each method against the data."""
     from src.data import pendulum_true
     ts = np.linspace(0.0, 6.0, 400)
 
@@ -601,6 +614,7 @@ def plot_pendulum(results, X_train, y_train, path):
 #
 
 def plot_pendulum_sweep(results, path, true_rate=1.61):
+    """Pendulum error and achieved rate across the Lipschitz-bound sweep."""
     """test MSE vs L_max on the physical pendulum task -- a clean
     underfit -> optimum -> overfit curve whose best point lands just above
     the pendulum's true maximum angular rate. Proves the constraint value is
@@ -655,6 +669,7 @@ def _conv_style(r):
 
 
 def plot_convergence_rate(results, path):
+    """KKT residual vs gradient norm per iteration (IPOPT vs Adam)."""
     fig, axes = plt.subplots(1, 2, figsize=(10, 4.5))
 
     ipopt_max_iter = max((len(r.get('kkt_history') or [])
@@ -706,6 +721,7 @@ def plot_convergence_rate(results, path):
 #
 
 def plot_hessian_comparison(results, path):
+    """Exact vs BFGS Hessian conditioning across problem sizes."""
     fig, axes = plt.subplots(1, 2, figsize=(9, 4))
 
     series = [

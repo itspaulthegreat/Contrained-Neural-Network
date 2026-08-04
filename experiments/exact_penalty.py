@@ -55,6 +55,8 @@ ip_rate = lipschitz_estimate(w_ip, shapes)
 
 def solve_exact_hinge(rho):
     """Solve MSE + rho*max(0, violation) via its exact epigraph NLP."""
+    # epigraph: slack >= 0 and slack >= violation together make slack the hinge
+    # max(0, violation), so minimizing f + rho*slack matches the soft penalty.
     slack = ca.MX.sym("slack")
     z = ca.vertcat(w, slack)
     constraints = ca.vertcat(slack, slack - violation)

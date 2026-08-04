@@ -11,6 +11,7 @@ from src.constraints import (lipschitz_constraint, norm_ball_constraint,
 
 
 def build_nlp(cfg, X_train, y_train):
+    """Build the CasADi NLP (w, f, g, bounds, w0) for one experiment config."""
     shapes = param_shapes(cfg['d_in'], cfg['H'], cfg['d_out'])
     n = n_params(shapes)
     w = ca.MX.sym('w', n)

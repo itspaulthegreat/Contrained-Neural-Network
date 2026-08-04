@@ -29,12 +29,14 @@ plt.rcParams.update({'font.size': 11, 'figure.dpi': 150, 'savefig.dpi': 150,
 
 
 def data_for(sigma, seed):
+    """Noisy teacher-student split at the given noise level and seed."""
     return generate_dataset(n_train=60, n_test=40, noise_std=sigma, seed=seed,
                             H_teacher=6, x_range=(-3.0, 3.0))
 
 
 def run_ipopt(sigma, seed):
-    # Lipschitz + norm-ball; ordering constraint left out (studied separately)
+    """Hard IPOPT solve (Lipschitz + norm-ball); returns test MSE and sensitivity.
+    The ordering constraint is left out (studied separately)."""
     exp = _make(f'seedstudy_ipopt_s{seed}', 'seed study', 'seedstudy',
                 method='ipopt', H=8, use_lipschitz=True, use_norm_ball=True,
                 use_symmetry_break=False, L_max=4.0, B_max=6.0,
@@ -45,6 +47,7 @@ def run_ipopt(sigma, seed):
 
 
 def run_adam(sigma, seed, weight_decay=0.0):
+    """Adam (weight_decay>0 gives AdamW); returns test MSE and sensitivity."""
     shapes = param_shapes(1, 8, 1)
     Xtr, ytr, Xte, yte = data_for(sigma, seed)
     w0 = random_init(shapes, scale=0.5, seed=seed)
@@ -65,6 +68,7 @@ def tune_wd(sigma):
 
 
 def main():
+    """Compare IPOPT vs the best Adam variant across seeds; write fig_seed_study."""
     fig, axes = plt.subplots(1, len(SIGMAS), figsize=(11, 4.8), sharey=False)
     verdicts = []
 

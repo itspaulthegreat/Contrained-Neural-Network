@@ -1,29 +1,12 @@
-"""
-src/multistart.py
-Multi-start / local-minima analysis.
-
-The Lipschitz-constrained NLP is nonconvex (the constraint is bilinear
-in the layer norms, and the tanh network itself is already nonconvex),
-so IPOPT's converged point can depend on the initial guess. The
-'multistart' experiment group (see configs/experiments.py) already
-produces 20 ordinary IPOPT solves -- same training data, same L_max,
-only the random initialization seed differs -- through the existing,
-unmodified solve() pipeline. This module adds no new solving logic; it
-only summarizes and reports on results that pipeline already produced.
-"""
+"""Multi-start / local-minima analysis. The constrained NLP is nonconvex, so
+IPOPT's converged point can depend on the initial guess. This module summarizes
+the 'multistart' group's solves (same data and L_max, different init seeds)."""
 
 import numpy as np
 
 
 def summarize_multistart(results):
-    """
-    results: list of result dicts from the 'multistart' group (same data,
-             same L_max, 20 different random init seeds).
-
-    Prints the best / median / worst run by final training MSE and a
-    rough count of distinct objective values found, then returns a small
-    summary dict.
-    """
+    """Report best/median/worst training MSE and count of distinct optima."""
     if not results:
         return {}
 

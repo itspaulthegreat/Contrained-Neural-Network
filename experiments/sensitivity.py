@@ -24,6 +24,7 @@ plt.rcParams.update({'font.size': 11, 'figure.dpi': 150, 'savefig.dpi': 150,
 
 
 def sensitivity_table(sigmas=(0.1, 0.3)):
+    """Achieved certificate per method over 15 seeds at each noise level."""
     table = {}
     for sigma in sigmas:
         wd = tune_wd(sigma)
@@ -86,6 +87,7 @@ def raw_distribution_figure(table):
 
 
 def wd_sweep_figure(sigma=0.3):
+    """Show that no weight-decay value reliably drives the certificate to 4."""
     all_vals = []
     for wd in WD_SWEEP:
         all_vals.append([run_adam(sigma, s, wd)[1] for s in range(N_SEEDS)])
@@ -137,6 +139,7 @@ def wd_sweep_figure(sigma=0.3):
 
 
 def main():
+    """Write sensitivity_table.json (Table I) and the sensitivity figures."""
     table = sensitivity_table()
     with open(os.path.join(RESULTS, 'sensitivity_table.json'), 'w') as f:
         json.dump(table, f, indent=2)
